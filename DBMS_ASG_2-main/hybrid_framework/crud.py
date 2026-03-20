@@ -36,6 +36,30 @@ def _coerce_mongo_filter(filters: dict) -> dict:
     return coerced
 
 
+def _coerce_sql_param_for_column(
+    col_name: str, val: Any, columns: dict[str, dict] | None
+) -> Any:
+    """Strip CLI strings and match INTEGER/REAL columns so WHERE clauses hit stored types."""
+    if val is None:
+        return None
+    if isinstance(val, str):
+        val = val.strip()
+    cols = columns or {}
+    info = cols.get(col_name) or {}
+    st = (info.get("sql_type") or "TEXT").upper()
+    if st == "INTEGER":
+        try:
+            return int(val)
+        except (TypeError, ValueError):
+            return val
+    if st == "REAL":
+        try:
+            return float(val)
+        except (TypeError, ValueError):
+            return val
+    return val
+
+
 class CRUDManager:
     def __init__(self):
         # config.SQL_URL may be a relative sqlite path (e.g. "sqlite:///./data/hybrid.db").
@@ -303,16 +327,39 @@ class CRUDManager:
             # ── Step 4: MongoDB ────────────────────────────────────────────────
             if self.mongo_available:
                 for coll_name, info in mongo_collections.items():
+                    # Skip any collection whose name is a SQL-classified field.
+                    # active_orders / support_tickets are 2NF SQL child tables; if
+                    # mongo_strategy produced a stale reference collection for them,
+                    # writing there too would duplicate every row across both stores.
+                    coll_placement = field_placement.get(coll_name, {})
+                    if coll_placement.get("backend") == "sql":
+                        print(
+                            f"  [INSERT] mongo '{coll_name}': skipped — "
+                            f"field is SQL-classified (table={coll_placement.get('table', '?')})"
+                        )
+                        continue
+
                     if info["strategy"] == "embed":
                         doc = {
                             config.JOIN_KEY:           sys_ingested_at,
                             config.SECONDARY_JOIN_KEY: username,
                         }
                         for field in info.get("embedded_fields", []):
+                            # Only embed fields that are actually mongo-classified.
+                            if field_placement.get(field, {}).get("backend") == "sql":
+                                continue
                             if field in record:
                                 doc[field] = record[field]
-                        print(f"  [INSERT] mongo '{coll_name}': embed insert fields={list(doc.keys())}")
-                        self.mongo_db[coll_name].insert_one(doc)
+                        # Don't write an anchor-only doc when there are no Mongo fields.
+                        min_anchor = 2 if username else 1
+                        if len(doc) > min_anchor:
+                            print(f"  [INSERT] mongo '{coll_name}': embed insert fields={list(doc.keys())}")
+                            self.mongo_db[coll_name].insert_one(doc)
+                        else:
+                            print(
+                                f"  [INSERT] mongo '{coll_name}': skipped — "
+                                f"no mongo-classified fields present in this record"
+                            )
 
                     elif info["strategy"] == "reference":
                         if coll_name in record and isinstance(record[coll_name], list):
@@ -661,7 +708,20 @@ class CRUDManager:
                     mongo_filters[config.JOIN_KEY] = filters[config.JOIN_KEY]
 
                 for coll_name, info in mongo_collections.items():
-                    docs = list(self.mongo_db[coll_name].find(mongo_filters, {"_id": 0}))
+                    # If mongo_filters is empty it means the filter is entirely on
+                    # the SQL side.  Never pass an empty filter to mongo — it would
+                    # return every document and inflate all_timestamps to the full
+                    # collection, causing deletes/reads to touch every record.
+                    # Instead restrict by the timestamps SQL already matched.
+                    if not mongo_filters:
+                        sql_ts = list(sql_results.keys())
+                        if not sql_ts:
+                            print(f"  [READ] mongo '{coll_name}': skipped — no SQL timestamps to join on")
+                            continue
+                        effective_filter = {config.JOIN_KEY: {"$in": sql_ts}}
+                    else:
+                        effective_filter = mongo_filters
+                    docs = list(self.mongo_db[coll_name].find(effective_filter, {"_id": 0}))
                     print(f"  [READ] mongo '{coll_name}': {len(docs)} docs found (strategy={info['strategy']})")
                     for d in docs:
                         ts = d.get(config.JOIN_KEY)
@@ -675,15 +735,27 @@ class CRUDManager:
 
                 # Also read from the fallback "main_documents" collection used when
                 # mongo_strategy has not run yet (no schema registered).
+                # IMPORTANT: never query with an empty filter — that would return
+                # every document in the collection.  Always restrict by the
+                # timestamps already found from SQL (or from the mongo pre-filter).
                 if "main_documents" not in mongo_collections:
-                    fallback_docs = list(self.mongo_db["main_documents"].find(mongo_filters, {"_id": 0}))
-                    print(f"  [READ] mongo 'main_documents' (fallback): {len(fallback_docs)} docs found")
-                    for d in fallback_docs:
-                        ts = d.get(config.JOIN_KEY)
-                        if not ts:
-                            continue
-                        mongo_results.setdefault(ts, {})
-                        mongo_results[ts].update(d)
+                    known_ts = list(sql_results.keys()) + [
+                        ts for ts in mongo_results if ts not in sql_results
+                    ]
+                    if known_ts:
+                        fallback_filter = {config.JOIN_KEY: {"$in": known_ts}}
+                        if mongo_filters:
+                            fallback_filter.update(mongo_filters)
+                        fallback_docs = list(self.mongo_db["main_documents"].find(fallback_filter, {"_id": 0}))
+                        print(f"  [READ] mongo 'main_documents' (fallback): {len(fallback_docs)} docs found")
+                        for d in fallback_docs:
+                            ts = d.get(config.JOIN_KEY)
+                            if not ts:
+                                continue
+                            mongo_results.setdefault(ts, {})
+                            mongo_results[ts].update(d)
+                    else:
+                        print(f"  [READ] mongo 'main_documents' (fallback): skipped — no timestamps to look up")
             except Exception as e:
                 logger.error(f"Mongo Read error: {e}")
         else:
@@ -741,6 +813,7 @@ class CRUDManager:
             return {"updated_sql_rows": 0, "updated_mongo_docs": 0}
 
         dim_tables = metadata_manager.get_3nf_dimension_tables()
+        records_cols = (sql_tables.get("records") or {}).get("columns") or {}
 
         # Split update fields by destination
         records_updates: dict[str, Any]              = {}
@@ -752,6 +825,22 @@ class CRUDManager:
             p = field_placement.get(field, {})
             backend = p.get("backend")
             table   = p.get("table", "records")
+
+            # Physical `records` columns first (flattened keys like billing_address.street
+            # often have no field_placement row, or only schema_nested_paths metadata).
+            if field in records_cols:
+                records_updates[field] = val
+                print(f"  [UPDATE] field '{field}' → records table (column in sql_tables)")
+                continue
+            parent = field.split(".", 1)[0] if "." in field else ""
+            flat_list = flattened_objects.get(parent) if parent else None
+            if flat_list and field in flat_list:
+                records_updates[field] = val
+                print(
+                    f"  [UPDATE] field '{field}' → records table "
+                    f"(flattened object '{parent}')"
+                )
+                continue
 
             if backend == "sql":
                 # Check if this field is in a 3NF dimension table
@@ -773,7 +862,21 @@ class CRUDManager:
                 mongo_updates[field] = val
                 print(f"  [UPDATE] field '{field}' → mongo")
             else:
-                print(f"  [UPDATE] field '{field}' has no placement (backend={backend}) — skipped")
+                # Last resort: scan every child (2NF) table for a matching column name.
+                # Fields like order_id live in active_orders but have no placement entry.
+                routed_child = False
+                for ct, ct_info in sql_tables.items():
+                    if ct in ("records",) or ct in dim_tables:
+                        continue
+                    if field in ct_info.get("columns", {}):
+                        child_updates.setdefault(ct, {})[field] = val
+                        print(f"  [UPDATE] field '{field}' → child table '{ct}' (column scan)")
+                        routed_child = True
+                        break
+                if not routed_child:
+                    print(
+                        f"  [UPDATE] field '{field}' has no placement (backend={backend}) — skipped"
+                    )
 
         sql_count   = 0
         mongo_count = 0
@@ -824,10 +927,62 @@ class CRUDManager:
 
                 for k, v in filters.items():
                     p = field_placement.get(k, {})
-                    if p.get("backend") == "sql" and p.get("table", "records") == "records":
+                    if p.get("backend") != "sql":
+                        continue
+
+                    if p.get("table", "records") == "records":
+                        # Filter field lives directly in records
                         safe_k = self._safe_key(k)
                         rec_where.append(f'"{k}" = :filter_{safe_k}')
-                        rec_params[f"filter_{safe_k}"] = v
+                        rec_params[f"filter_{safe_k}"] = _coerce_sql_param_for_column(
+                            k, v, records_cols
+                        )
+                    else:
+                        # Filter field lives in a dim table or child table.
+                        # Pre-lookup the matching FK / JOIN_KEY values so we can
+                        # build a valid WHERE on the records table.
+                        filter_table = p.get("table")
+                        if filter_table in dim_tables:
+                            # Dim table: find matching determinant (FK) values
+                            det = dim_tables[filter_table]["determinant"]
+                            try:
+                                coerced_v = _coerce_mongo_filter({k: v})[k]
+                                dim_rows = conn.execute(
+                                    text(f'SELECT DISTINCT "{det}" FROM "{filter_table}" WHERE "{k}" = :fv'),
+                                    {"fv": coerced_v},
+                                ).mappings().all()
+                                fk_vals = [r[det] for r in dim_rows if r[det] is not None]
+                                if fk_vals:
+                                    ph = ", ".join(f":dimfilt{i}" for i in range(len(fk_vals)))
+                                    for i, fv in enumerate(fk_vals):
+                                        rec_params[f"dimfilt{i}"] = fv
+                                    rec_where.append(f'"{det}" IN ({ph})')
+                                    print(f"  [UPDATE] filter '{k}' resolved via dim '{filter_table}': {len(fk_vals)} FK values")
+                                else:
+                                    print(f"  [UPDATE] filter '{k}' matched 0 rows in dim '{filter_table}' — nothing to update")
+                                    return {"updated_sql_rows": 0, "updated_mongo_docs": 0}
+                            except Exception as _dim_err:
+                                print(f"  [UPDATE] dim filter lookup error: {_dim_err}")
+                        else:
+                            # Child table: find matching JOIN_KEY values
+                            try:
+                                coerced_v = _coerce_mongo_filter({k: v})[k]
+                                child_rows = conn.execute(
+                                    text(f'SELECT DISTINCT "{config.JOIN_KEY}" FROM "{filter_table}" WHERE "{k}" = :fv'),
+                                    {"fv": coerced_v},
+                                ).mappings().all()
+                                ts_vals = [r[config.JOIN_KEY] for r in child_rows if r[config.JOIN_KEY] is not None]
+                                if ts_vals:
+                                    ph = ", ".join(f":ctfilt{i}" for i in range(len(ts_vals)))
+                                    for i, tv in enumerate(ts_vals):
+                                        rec_params[f"ctfilt{i}"] = tv
+                                    rec_where.append(f'"{config.JOIN_KEY}" IN ({ph})')
+                                    print(f"  [UPDATE] filter '{k}' resolved via child '{filter_table}': {len(ts_vals)} timestamps")
+                                else:
+                                    print(f"  [UPDATE] filter '{k}' matched 0 rows in child '{filter_table}' — nothing to update")
+                                    return {"updated_sql_rows": 0, "updated_mongo_docs": 0}
+                            except Exception as _ct_err:
+                                print(f"  [UPDATE] child filter lookup error: {_ct_err}")
 
                 where_str = f"WHERE {' AND '.join(rec_where)}" if rec_where else ""
                 print(f"  [UPDATE] WHERE clause: {where_str}  params={rec_params}")
@@ -905,6 +1060,57 @@ class CRUDManager:
                             sql_count += res.rowcount
                             print(f"  [UPDATE] child '{child_table}': {res.rowcount} rows updated")
 
+                # ── Propagate secondary-key renames to child tables / Mongo ────
+                # SECONDARY_JOIN_KEY (e.g. customer_login) is denormalised as an
+                # anchor column in every 2NF child table and in every Mongo doc.
+                # When that field is updated we must cascade the new value to all
+                # child tables (via JOIN_KEY) and queue it for Mongo propagation.
+                sk = config.SECONDARY_JOIN_KEY
+                print(f"  [UPDATE] SECONDARY_JOIN_KEY={sk!r}")
+                sk_propagate: dict[str, Any] = {}
+                # Trigger on any field whose name equals the secondary key,
+                # regardless of which routing bucket it ended up in.
+                if sk and sk in updates:
+                    sk_propagate[sk] = updates[sk]
+
+                if sk_propagate:
+                    ts_rows = conn.execute(
+                        text(f'SELECT "{config.JOIN_KEY}" FROM "records" {where_str}'),
+                        rec_params,
+                    ).mappings().all()
+                    sk_ts_values = [r[config.JOIN_KEY] for r in ts_rows]
+                    if sk_ts_values:
+                        sk_ts_ph  = ", ".join(f":skts{i}" for i in range(len(sk_ts_values)))
+                        sk_params = {f"skts{i}": v for i, v in enumerate(sk_ts_values)}
+                        for child_table, info in sql_tables.items():
+                            if child_table in ("records",) or child_table in dim_tables:
+                                continue
+                            if sk not in info.get("columns", {}):
+                                continue
+                            sk_set_clauses = [
+                                f'"{k}" = :skset_{self._safe_key(k)}' for k in sk_propagate
+                            ]
+                            sk_run_params = {
+                                **{f"skset_{self._safe_key(k)}": self._value_to_sql(v)
+                                   for k, v in sk_propagate.items()},
+                                **sk_params,
+                            }
+                            res = conn.execute(
+                                text(
+                                    f'UPDATE "{child_table}" '
+                                    f'SET {", ".join(sk_set_clauses)} '
+                                    f'WHERE "{config.JOIN_KEY}" IN ({sk_ts_ph})'
+                                ),
+                                sk_run_params,
+                            )
+                            sql_count += res.rowcount
+                            print(
+                                f"  [UPDATE] child '{child_table}': propagated "
+                                f"{sk}={sk_propagate[sk]!r} to {res.rowcount} rows"
+                            )
+                        # Queue for Mongo propagation
+                        mongo_updates.update(sk_propagate)
+
                 conn.commit()
                 print(f"  [UPDATE] SQL commit OK — total rows updated: {sql_count}")
 
@@ -912,10 +1118,47 @@ class CRUDManager:
             print(f"  [UPDATE] SQL error: {e}", file=sys.stderr)
             logger.error(f"SQL Update error: {e}")
 
+        # ── Cross-backend propagation ─────────────────────────────────────────
+        # Fields that were updated in SQL (records, dim, or child tables) may also
+        # exist as denormalized copies in MongoDB documents.  Push those same values
+        # into mongo_updates so the Mongo copy stays in sync.
+        all_sql_updates: dict[str, Any] = {
+            **records_updates,
+            **{f: v for dim_vals in dim_updates.values() for f, v in dim_vals.items()},
+            **{f: v for child_vals in child_updates.values() for f, v in child_vals.items()},
+        }
+        for field, val in all_sql_updates.items():
+            if field not in mongo_updates:
+                mongo_updates[field] = val
+                print(f"  [UPDATE] cross-propagate '{field}' → mongo (SQL→Mongo sync)")
+
         # ── MongoDB updates ────────────────────────────────────────────────────
         if self.mongo_available and mongo_updates:
             try:
-                mongo_filter: dict[str, Any] = {k: v for k, v in filters.items()}
+                # Use JOIN_KEY filter when possible so SQL-only filters still
+                # narrow Mongo (avoids updating every document when mongo_filter
+                # would otherwise be empty).
+                sql_ts_for_mongo: list[str] = []
+                try:
+                    with self.sql_engine.connect() as _conn2:
+                        _where_for_mongo = where_str  # may be empty if no SQL WHERE built
+                        if _where_for_mongo:
+                            _rows = _conn2.execute(
+                                text(f'SELECT "{config.JOIN_KEY}" FROM "records" {_where_for_mongo}'),
+                                rec_params,
+                            ).mappings().all()
+                            sql_ts_for_mongo = [r[config.JOIN_KEY] for r in _rows]
+                except Exception:
+                    pass
+
+                mongo_filter: dict[str, Any] = {k: v for k, v in filters.items()
+                                                 if field_placement.get(k, {}).get("backend") == "mongo"}
+                if not mongo_filter and sql_ts_for_mongo:
+                    mongo_filter = {config.JOIN_KEY: {"$in": sql_ts_for_mongo}}
+                elif not mongo_filter and not sql_ts_for_mongo:
+                    # No way to narrow — use the raw filters as-is (last resort)
+                    mongo_filter = {k: v for k, v in filters.items()}
+
                 all_mongo_colls = list(mongo_collections)
                 if "main_documents" not in mongo_collections:
                     all_mongo_colls.append("main_documents")

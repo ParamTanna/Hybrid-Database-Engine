@@ -26,10 +26,14 @@ def _is_shared_structure(field_name: str, schema: dict, field_stats: dict) -> bo
     return False # Simplified for now
 
 def _is_update_heavy(field_name: str, sample_records: list[dict]) -> bool:
-    user_vals = {} # username -> list of values
+    sk = config.SECONDARY_JOIN_KEY
+    if not sk:
+        return False
+    user_vals = {}  # secondary key -> list of values
     for r in sample_records:
-        uname = r.get(config.SECONDARY_JOIN_KEY)
-        if not uname or field_name not in r: continue
+        uname = r.get(sk)
+        if not uname or field_name not in r:
+            continue
         if uname not in user_vals: user_vals[uname] = []
         user_vals[uname].append(r[field_name])
     
@@ -77,17 +81,27 @@ def decide_strategy(field_name: str, field_stats: dict, schema: dict, sample_rec
 
     return {"strategy": "embed", "reason": "small_stable_array_or_doc"}
 
+def _mongo_anchor_field_names() -> list[str]:
+    sk = config.SECONDARY_JOIN_KEY
+    if sk:
+        return [sk, config.JOIN_KEY]
+    return [config.JOIN_KEY]
+
+
 def build_mongo_collection_schema(mongo_fields: list[str], field_stats: dict, schema: dict, sample_records: list[dict]) -> dict:
+    anchors = _mongo_anchor_field_names()
     collections = {
         "main_documents": {
             "strategy": "embed",
             "embedded_fields": [],
-            "fields": [config.SECONDARY_JOIN_KEY, config.JOIN_KEY]
+            "fields": list(anchors),
         }
     }
-    
+
     for field in mongo_fields:
-        if field == config.JOIN_KEY or field == config.SECONDARY_JOIN_KEY:
+        if field == config.JOIN_KEY:
+            continue
+        if config.SECONDARY_JOIN_KEY and field == config.SECONDARY_JOIN_KEY:
             continue
             
         decision = decide_strategy(field, field_stats, schema, sample_records)
@@ -103,10 +117,11 @@ def build_mongo_collection_schema(mongo_fields: list[str], field_stats: dict, sc
                         if isinstance(item, dict):
                             sub_fields.update(item.keys())
             
+            ref_fields = list(sub_fields) + list(anchors)
             collections[field] = {
                 "strategy": "reference",
                 "join_key": config.JOIN_KEY,
-                "fields": list(sub_fields) + [config.JOIN_KEY, config.SECONDARY_JOIN_KEY],
+                "fields": ref_fields,
                 "reason": decision["reason"]
             }
             

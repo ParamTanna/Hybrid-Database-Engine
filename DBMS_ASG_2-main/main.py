@@ -111,8 +111,102 @@ def show_placement_summary() -> None:
                   f"dependent={dim_info['dependent_fields']}")
 
 
+def _sync_join_key_from_saved_schema() -> None:
+    """Align config.JOIN_KEY with metadata after restart (schema registered earlier)."""
+    s = metadata_manager.get_schema()
+    if s:
+        config.apply_join_key_from_schema(s)
+
+
+_DEFAULT_SCHEMA_PATH = _PROJECT_ROOT / "hybrid_framework" / "schema.json"
+
+
+def _strip_legacy_join_from_cumulative(raw: dict) -> dict:
+    """Drop sys_ingested_at from merged cumulative when using a different JOIN_KEY."""
+    if config.JOIN_KEY == "sys_ingested_at":
+        return raw
+    fields = raw.get("fields")
+    if isinstance(fields, dict) and "sys_ingested_at" in fields:
+        raw = dict(raw)
+        raw["fields"] = {k: v for k, v in fields.items() if k != "sys_ingested_at"}
+    return raw
+
+
+def _finalize_placement(decisions: dict) -> dict:
+    """Ensure JOIN_KEY is classified; drop legacy correlation field from placement."""
+    out = dict(decisions)
+    jk = config.JOIN_KEY
+    out[jk] = {"backend": "sql", "unique": True, "reason": "join_key"}
+    if jk != "sys_ingested_at":
+        out.pop("sys_ingested_at", None)
+    return out
+
+
+def _rebuild_after_schema_change(schema_dict: dict, crud_mgr: crud.CRUDManager | None) -> None:
+    """
+    Re-classify, replace placement (no stale merge), normalize 2NF/3NF, mongo layout, DDL.
+    Call after register_schema when cumulative stats may already exist.
+    """
+    if config.JOIN_KEY != "sys_ingested_at":
+        metadata_manager.purge_field_from_cumulative_and_placement("sys_ingested_at")
+
+    cum = metadata_manager.get_cumulative_stats()
+    stats = analysis.cumulative_raw_to_derived(cum)
+    if not stats:
+        if crud_mgr is not None:
+            crud_mgr.ensure_all_tables(metadata_manager.get_sql_tables())
+        return
+
+    decisions = _finalize_placement(classification.classify_fields(stats))
+    metadata_manager.save_field_placement(decisions, replace=True)
+
+    normalization_engine.run_normalization(_record_sample, stats, schema_dict)
+    mongo_fields = [
+        f
+        for f in stats
+        if (
+            metadata_manager.get_placement_for_field(f)
+            and metadata_manager.get_placement_for_field(f)["backend"] == "mongo"
+        )
+    ]
+    mongo_strategy.run_mongo_strategy(mongo_fields, stats, schema_dict, _record_sample)
+    if crud_mgr is not None:
+        crud_mgr.ensure_all_tables(metadata_manager.get_sql_tables())
+
+
+def _ensure_default_schema_loaded(crud_mgr: crud.CRUDManager | None = None) -> None:
+    """
+    Normalization (2NF/3NF) and typed columns require a registered schema.
+    If metadata has none, load hybrid_framework/schema.json so ingest does not
+    fall back to a single flat TEXT `records` table.
+    """
+    if metadata_manager.get_schema():
+        return
+    if not _DEFAULT_SCHEMA_PATH.is_file():
+        print(
+            f"Note: No schema in metadata and no default file at {_DEFAULT_SCHEMA_PATH} — "
+            "use menu [1] to register a schema for normalization."
+        )
+        return
+    try:
+        with open(_DEFAULT_SCHEMA_PATH, "r", encoding="utf-8") as f:
+            schema_dict = json.load(f)
+        summary = schema_registry.register_schema(schema_dict)
+        print(
+            f"\nLoaded default schema from {_DEFAULT_SCHEMA_PATH.name} "
+            f"({summary.get('fields_registered', '?')} fields). "
+            "Menu [1] can replace it anytime."
+        )
+        _rebuild_after_schema_change(schema_dict, crud_mgr)
+    except (json.JSONDecodeError, OSError, ValueError) as e:
+        print(f"Warning: could not load default schema: {e}")
+
+
 def main_menu() -> None:
+    _sync_join_key_from_saved_schema()
     crud_mgr   = startup_checks()
+    _ensure_default_schema_loaded(crud_mgr)
+    metadata_manager.ensure_buffer_json()
     buffer_mgr = buffer_manager.BufferManager(crud_mgr)
     q_engine   = query_engine.QueryEngine(crud_mgr, buffer_mgr)
 
@@ -160,26 +254,15 @@ def main_menu() -> None:
                 summary = schema_registry.register_schema(schema_dict)
                 print("\nSchema registered successfully.")
                 print(json.dumps(summary, indent=2))
-
-                # Re-run normalisation if data already exists
-                cum   = metadata_manager.get_cumulative_stats()
-                stats = analysis.cumulative_raw_to_derived(cum)
-                if stats:
-                    normalization_engine.run_normalization(_record_sample, stats, schema_dict)
-                    mongo_fields = [
-                        f for f, s in stats.items()
-                        if (
-                            metadata_manager.get_placement_for_field(f)
-                            and metadata_manager.get_placement_for_field(f)["backend"] == "mongo"
-                        )
-                    ]
-                    mongo_strategy.run_mongo_strategy(mongo_fields, stats, schema_dict, _record_sample)
-                    crud_mgr.ensure_all_tables(metadata_manager.get_sql_tables())
+                _rebuild_after_schema_change(schema_dict, crud_mgr)
             except ValueError as e:
                 print(f"Error: {e}")
 
         # ── [2] Ingest from stream ───────────────────────────────────────────
         elif choice == "2":
+            _ensure_default_schema_loaded(crud_mgr)
+            metadata_manager.ensure_buffer_json()
+
             count_str = input("How many records to fetch? (default 100): ").strip()
             count = int(count_str) if count_str.isdigit() else 100
 
@@ -200,11 +283,12 @@ def main_menu() -> None:
             batch_stats = analysis.analyze_buffer(processed_records)
             prev_cum    = metadata_manager.get_cumulative_stats()
             merged_raw  = analysis.merge_cumulative_stats(prev_cum, batch_stats, len(processed_records))
+            merged_raw  = _strip_legacy_join_from_cumulative(merged_raw)
             metadata_manager.save_cumulative_stats(merged_raw, merged_raw["total_records"])
 
             derived   = analysis.cumulative_raw_to_derived(merged_raw)
-            decisions = classification.classify_fields(derived)
-            metadata_manager.save_field_placement(decisions)
+            decisions = _finalize_placement(classification.classify_fields(derived))
+            metadata_manager.save_field_placement(decisions, replace=True)
 
             # Run normalisation (1NF → 2NF → 3NF) and Mongo strategy
             schema = schema_registry.get_schema()
@@ -229,7 +313,7 @@ def main_menu() -> None:
                             "foreign_keys": [],
                         }
                     }
-                    metadata_manager.save_sql_tables(minimal_tables)
+                    metadata_manager.save_sql_tables({"tables": minimal_tables})
 
             # Always create/sync tables — must happen whether or not a schema
             # is registered, and must happen BEFORE the insert loop below.
@@ -366,6 +450,7 @@ def main_menu() -> None:
                 mongo_colls = metadata_manager.get_mongo_collections()
                 crud_mgr.reset_database(sql_tables, mongo_colls)
                 metadata_manager.reset()
+                _record_sample.clear()
 
                 # Remove SQLite file if using a file-based URL
                 if config.SQL_URL.startswith("sqlite:///"):
@@ -377,6 +462,8 @@ def main_menu() -> None:
                             print(f"Warning: Could not delete database file: {e}")
 
                 crud_mgr   = startup_checks()
+                _ensure_default_schema_loaded(crud_mgr)
+                metadata_manager.ensure_buffer_json()
                 buffer_mgr = buffer_manager.BufferManager(crud_mgr)
                 q_engine   = query_engine.QueryEngine(crud_mgr, buffer_mgr)
                 print("All data cleared. Schema, buffer, and database reset.")

@@ -23,47 +23,71 @@ def flatten_value_for_type(value: Any) -> Any:
     """Returns value as-is (nested dict/list are kept for has_nested detection)."""
     return value
 
+def _new_field_stat() -> dict[str, Any]:
+    return {
+        "presence_count": 0,
+        "types": {},
+        "unique_values": set(),
+        "has_nested": False,
+    }
+
+
 def analyze_buffer(records: list[dict[str, Any]]) -> dict[str, Any]:
     """Analyze a batch of records and return per-field stats."""
-    field_stats = {}
+    field_stats: dict[str, Any] = {}
     batch_size = len(records)
-    
+
     for record in records:
         for field, value in record.items():
             if field not in field_stats:
-                field_stats[field] = {
-                    "presence_count": 0,
-                    "types": {},
-                    "unique_values": set(),
-                    "has_nested": False
-                }
-            
+                field_stats[field] = _new_field_stat()
+
             stats = field_stats[field]
             stats["presence_count"] += 1
-            
+
             v_type = _value_type(value)
             stats["types"][v_type] = stats["types"].get(v_type, 0) + 1
-            
+
             if v_type in ("dict", "list"):
                 stats["has_nested"] = True
-                # For uniqueness, we can't easily hash dicts/lists, so we use string rep
                 stats["unique_values"].add(str(value))
             else:
                 stats["unique_values"].add(value)
-                
-    # Convert sets to counts for serialization if needed, 
-    # but here we just return the raw batch stats
-    result = {
-        "batch_size": batch_size,
-        "fields": {}
-    }
+
+            if v_type == "dict" and isinstance(value, dict):
+                sub = stats.setdefault("subfields", {})
+                for sk, sv in value.items():
+                    if sk not in sub:
+                        sub[sk] = _new_field_stat()
+                    sst = sub[sk]
+                    sst["presence_count"] += 1
+                    stype = _value_type(sv)
+                    sst["types"][stype] = sst["types"].get(stype, 0) + 1
+                    if stype in ("dict", "list"):
+                        sst["has_nested"] = True
+                        sst["unique_values"].add(str(sv))
+                    else:
+                        sst["unique_values"].add(sv)
+
+    result: dict[str, Any] = {"batch_size": batch_size, "fields": {}}
     for field, stats in field_stats.items():
-        result["fields"][field] = {
+        entry: dict[str, Any] = {
             "presence_count": stats["presence_count"],
             "types": stats["types"],
             "unique_count": len(stats["unique_values"]),
-            "has_nested": stats["has_nested"]
+            "has_nested": stats["has_nested"],
         }
+        if "subfields" in stats:
+            entry["subfields"] = {
+                sk: {
+                    "presence_count": sst["presence_count"],
+                    "types": sst["types"],
+                    "unique_count": len(sst["unique_values"]),
+                    "has_nested": sst["has_nested"],
+                }
+                for sk, sst in stats["subfields"].items()
+            }
+        result["fields"][field] = entry
     return result
 
 def merge_cumulative_stats(prev_cumulative: dict, batch_result: dict, batch_size: int) -> dict:
@@ -93,7 +117,25 @@ def merge_cumulative_stats(prev_cumulative: dict, batch_result: dict, batch_size
         # Simplistic unique count merge: just add. 
         # (This is wrong for true uniqueness but fine for the assignment's ratio logic)
         cum_stats["unique_count_approx"] += batch_stats["unique_count"]
-        
+
+        batch_sub = batch_stats.get("subfields") or {}
+        if batch_sub:
+            cum_sub = cum_stats.setdefault("subfields", {})
+            for sk, bsub in batch_sub.items():
+                if sk not in cum_sub:
+                    cum_sub[sk] = {
+                        "presence_count": 0,
+                        "types": {},
+                        "unique_count_approx": 0,
+                        "has_nested": False,
+                    }
+                cs = cum_sub[sk]
+                cs["presence_count"] += bsub["presence_count"]
+                cs["has_nested"] = cs["has_nested"] or bsub["has_nested"]
+                for t, c in bsub["types"].items():
+                    cs["types"][t] = cs["types"].get(t, 0) + c
+                cs["unique_count_approx"] += bsub["unique_count"]
+
     return prev_cumulative
 
 def cumulative_raw_to_derived(cumulative_raw: dict) -> dict:

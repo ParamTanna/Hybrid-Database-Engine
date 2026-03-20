@@ -1,6 +1,59 @@
 from typing import Any
 import hybrid_framework.config as config
 import hybrid_framework.metadata_manager as metadata_manager
+import hybrid_framework.schema_registry as schema_registry
+
+
+def child_table_anchor_columns(schema: dict) -> dict[str, dict]:
+    """
+    Fixed columns for 2NF child tables: _row_id, JOIN_KEY, and optional inferred
+    secondary correlation column (see config.infer_secondary_correlation_field).
+    """
+    jk_t = schema.get("fields", {}).get(config.JOIN_KEY, {}).get("type", "str")
+    cols: dict[str, dict] = {
+        "_row_id": {"sql_type": "INTEGER", "primary_key": True},
+        config.JOIN_KEY: {
+            "sql_type": schema_registry.sql_type_for_schema_type(jk_t),
+            "not_null": True,
+        },
+    }
+    sk = config.SECONDARY_JOIN_KEY
+    if sk:
+        st = schema.get("fields", {}).get(sk, {}).get("type", "str")
+        cols[sk] = {"sql_type": schema_registry.sql_type_for_schema_type(st)}
+    return cols
+
+
+def sql_type_for_child_column(
+    parent_field: str, column_name: str, schema: dict, field_stats: dict
+) -> str:
+    """
+    Resolve SQLite column type for a 2NF child / flattened sub-column using
+    schema items.properties or object.properties when available.
+    """
+    fields = schema.get("fields", {})
+    parent = fields.get(parent_field, {})
+    bare = column_name
+    prefix = parent_field + "."
+    if bare.startswith(prefix):
+        bare = bare[len(prefix) :]
+
+    if parent.get("type") == "array":
+        items = parent.get("items") or {}
+        if items.get("type") == "object":
+            sub = (items.get("properties") or {}).get(bare, {})
+            t = sub.get("type")
+            if t and t not in ("array", "object"):
+                return schema_registry.sql_type_for_schema_type(t)
+
+    if parent.get("type") == "object":
+        sub = (parent.get("properties") or {}).get(bare, {})
+        t = sub.get("type")
+        if t and t not in ("array", "object"):
+            return schema_registry.sql_type_for_schema_type(t)
+
+    d = field_stats.get(bare, {}).get("dominant_type", "str")
+    return {"int": "INTEGER", "float": "REAL", "bool": "INTEGER"}.get(d, "TEXT")
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -24,6 +77,8 @@ def detect_entity_identifier(field_stats: dict, schema: dict) -> str | None:
     for field, stats in field_stats.items():
         if field not in fields:
             continue
+        if field == config.JOIN_KEY:
+            continue                               # correlation id, not a business entity PK
         d_type = stats.get("dominant_type")
         if d_type in ("list", "dict"):
             continue                               # PKs must be scalar
@@ -203,7 +258,7 @@ def decompose_for_3nf(
 
     A *transitive dependency* exists when a non-key field A determines another
     non-key field B:
-        PK (sys_ingested_at) → A → B
+        PK (JOIN_KEY / correlation id) → A → B
 
     Resolution strategy
     -------------------
@@ -248,19 +303,19 @@ def decompose_for_3nf(
     """
     join_key = config.JOIN_KEY
 
-    # Fields that may NOT trigger a decomposition:
-    #   - JOIN_KEY: it IS the PK of the records table (timestamp); every field
-    #     trivially depends on it — not a transitive dependency.
-    #   - pk_field: if the schema has a natural PK (e.g. student_id with
-    #     uniqueness_ratio ~1.0), dependencies from it are DIRECT from the PK,
-    #     not transitive.
+    # Only exclude the per-ingest correlation key. It is not part of FD analysis
+    # as a determinant (see detect_functional_dependencies), but strip it from
+    # dependency targets so we never move it to a dimension table.
+    #
+    # IMPORTANT: Do *not* treat pk_field (natural entity id, e.g. customer_id) as
+    # "protected". The physical PK of `records` is JOIN_KEY (many rows per entity).
+    # FDs like customer_id → {full_name, email} are exactly the transitive deps
+    # 3NF must pull into a dimension table keyed by customer_id.
     protected: set[str] = {join_key}
-    if pk_field:
-        protected.add(pk_field)
 
     sql_field_set = set(sql_fields)
 
-    # ── Step 1: filter FDs to non-protected determinants with SQL-field targets ─
+    # ── Step 1: filter FDs to determinants with SQL-field targets ─────────────
     relevant_fds: dict[str, set[str]] = {}
     for det, determined in fd_groups.items():
         if det in protected:
@@ -533,6 +588,8 @@ def build_sql_table_schema(
     fields_removed = decomp["fields_removed_from_main"]   # leave 'records' entirely
     extra_fks      = decomp["extra_fks"]
 
+    fk_columns_on_records = {fk["column"] for fk in extra_fks}
+
     # Anything handled by 2NF normalisations OR 3NF decomposition is excluded
     # from direct placement in the main 'records' table.
     excluded_from_main = handled_fields | fields_removed
@@ -542,27 +599,33 @@ def build_sql_table_schema(
         if field in excluded_from_main or field == config.JOIN_KEY:
             continue
         props = schema.get("fields", {}).get(field, {})
+        # Schema may mark entity ids UNIQUE; on `records` the same id repeats
+        # across ingests, so drop UNIQUE for columns that are FKs to dimension tables.
+        use_unique = bool(props.get("unique", False)) and field not in fk_columns_on_records
         tables[main_table]["columns"][field] = {
             "sql_type":    _map_type(field),
-            "primary_key": field == pk_field,
-            "unique":      props.get("unique", False),
+            "primary_key": False,
+            "unique":      use_unique,
             "not_null":    props.get("not_null", False),
         }
 
-    # The system join key is always present in 'records'
+    # The per-ingest correlation key is always the physical PK of `records`.
     if config.JOIN_KEY not in tables[main_table]["columns"]:
+        jk_t = schema.get("fields", {}).get(config.JOIN_KEY, {}).get("type", "str")
         tables[main_table]["columns"][config.JOIN_KEY] = {
-            "sql_type":    "TEXT",
+            "sql_type":    schema_registry.sql_type_for_schema_type(jk_t),
             "unique":      True,
             "not_null":    True,
-            "primary_key": pk_field is None,
+            "primary_key": True,
         }
 
-    # Set primary key
-    if pk_field and pk_field in tables[main_table]["columns"]:
-        tables[main_table]["primary_key"] = pk_field
-    else:
-        tables[main_table]["primary_key"] = config.JOIN_KEY
+    jk = config.JOIN_KEY
+    if jk in tables[main_table]["columns"]:
+        tables[main_table]["columns"][jk]["primary_key"] = True
+        tables[main_table]["primary_key"] = jk
+        for cname, cinfo in tables[main_table]["columns"].items():
+            if cname != jk:
+                cinfo["primary_key"] = False
 
     # Attach FK declarations pointing to dimension tables
     tables[main_table]["foreign_keys"].extend(extra_fks)
@@ -572,18 +635,15 @@ def build_sql_table_schema(
         if no["strategy"] == "inline":
             flattened_objects[no["field"]] = no["sub_fields"]
             for sf in no["sub_fields"]:
+                st = sql_type_for_child_column(no["field"], sf, schema, field_stats)
                 tables[main_table]["columns"][sf] = {
-                    "sql_type": "TEXT", "unique": False, "not_null": False
+                    "sql_type": st, "unique": False, "not_null": False
                 }
 
         elif no["strategy"] == "separate_table":
             tname = no["field"]
             tables[tname] = {
-                "columns": {
-                    "_row_id":                 {"sql_type": "INTEGER", "primary_key": True},
-                    config.JOIN_KEY:           {"sql_type": "TEXT",    "not_null": True},
-                    config.SECONDARY_JOIN_KEY: {"sql_type": "TEXT"},
-                },
+                "columns": dict(child_table_anchor_columns(schema)),
                 "primary_key": "_row_id",
                 "foreign_keys": [{
                     "column":            config.JOIN_KEY,
@@ -596,7 +656,8 @@ def build_sql_table_schema(
                     "sql_type": _map_type(pk_field), "not_null": True
                 }
             for sf in no["sub_fields"]:
-                tables[tname]["columns"][sf] = {"sql_type": "TEXT"}
+                st = sql_type_for_child_column(no["field"], sf, schema, field_stats)
+                tables[tname]["columns"][sf] = {"sql_type": st}
 
     # ── 2NF: repeating group (child) tables ───────────────────────────────────
     for rg in repeating_groups:
@@ -604,11 +665,7 @@ def build_sql_table_schema(
             continue
         tname = rg["child_table_name"]
         tables[tname] = {
-            "columns": {
-                "_row_id":                 {"sql_type": "INTEGER", "primary_key": True},
-                config.JOIN_KEY:           {"sql_type": "TEXT",    "not_null": True},
-                config.SECONDARY_JOIN_KEY: {"sql_type": "TEXT"},
-            },
+            "columns": dict(child_table_anchor_columns(schema)),
             "primary_key": "_row_id",
             "foreign_keys": [{
                 "column":            config.JOIN_KEY,
@@ -621,7 +678,8 @@ def build_sql_table_schema(
                 "sql_type": _map_type(pk_field), "not_null": True
             }
         for sf in rg["sub_fields"]:
-            tables[tname]["columns"][sf] = {"sql_type": "TEXT"}
+            st = sql_type_for_child_column(rg["parent_field"], sf, schema, field_stats)
+            tables[tname]["columns"][sf] = {"sql_type": st}
 
     # ── 3NF: dimension tables ─────────────────────────────────────────────────
     for dim_name, dim_info in dim_tables.items():
@@ -732,13 +790,12 @@ def run_normalization(all_records: list[dict], field_stats: dict, schema: dict) 
             }
 
     if new_placements:
-        # Merge INTO existing placements rather than replacing them.
-        # save_field_placement overwrites the entire map, so we must re-read the
-        # placements that classification.classify_fields() wrote earlier and layer
-        # the normalisation decisions on top.  Without this merge, every field
-        # that was not involved in a normalisation step loses its sql/mongo
-        # classification and gets silently routed to the buffer on the next insert.
-        existing_placements = metadata_manager.get_field_placement()
-        metadata_manager.save_field_placement({**existing_placements, **new_placements})
+        # save_field_placement already merges internally (existing.update(placement)),
+        # so just pass new_placements directly.  The previous call passed replace=True
+        # which is not a valid parameter, causing a TypeError that crashed the entire
+        # ingest before ensure_all_tables was ever reached — dimension tables were
+        # computed and written to metadata but never actually created in SQLite.
+        metadata_manager.save_field_placement(new_placements)
+        print(f"  [NORM] saved placements for {len(new_placements)} normalised fields: {list(new_placements.keys())}")
 
     return result

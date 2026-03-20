@@ -1,19 +1,104 @@
 {
+  "_doc": "Only global_record_key is user-defined for correlation. A secondary scalar field (e.g. customer_login) is inferred from other schema fields for child SQL rows / Mongo anchors.",
+
+  "global_record_key": {
+    "field": "hybrid_record_id",
+    "policy": "uuid_v4"
+  },
+
   "fields": {
-    "username":           {"type": "str",   "not_null": true},
-    "student_id":         {"type": "int",   "not_null": true, "unique": true},
-    "name":               {"type": "str",   "not_null": true},
-    "email":              {"type": "str"},
-    "age":                {"type": "int"},
-    "gpa":                {"type": "float"},
-    "department":         {"type": "str"},
-    "year_of_study":      {"type": "int"},
-    "is_active":          {"type": "bool"},
-    "phone":              {"type": "str"},
-    "address":            {"type": "object"},
-    "cgpa_history":       {"type": "array"},
-    "enrolled_courses":   {"type": "array"},
-    "submissions":        {"type": "array"},
-    "research_interests": {"type": "array"}
+    "hybrid_record_id": {
+      "type": "str",
+      "not_null": true,
+      "unique": true
+    },
+
+    "customer_login": {
+      "type": "str",
+      "not_null": true
+    },
+
+    "customer_id": {
+      "type": "int",
+      "not_null": true,
+      "unique": true
+    },
+
+    "full_name": { "type": "str", "not_null": true },
+    "email": { "type": "str" },
+    "account_balance": { "type": "float" },
+    "loyalty_points": { "type": "int" },
+    "is_premium": { "type": "bool" },
+    "phone": { "type": "str" },
+    "signup_year": { "type": "int" },
+
+    "billing_address": {
+      "type": "object",
+      "properties": {
+        "street": { "type": "str" },
+        "city": { "type": "str" },
+        "region": { "type": "str" },
+        "postal_code": { "type": "str" },
+        "country": { "type": "str" }
+      }
+    },
+
+    "shipping_address": {
+      "type": "object",
+      "properties": {
+        "line1": { "type": "str" },
+        "line2": { "type": "str" },
+        "city": { "type": "str" },
+        "postal_code": { "type": "str" }
+      }
+    },
+
+    "order_totals_history": {
+      "type": "array",
+      "items": { "type": "float" }
+    },
+
+    "active_orders": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "order_id": { "type": "str", "not_null": true },
+          "sku": { "type": "str" },
+          "quantity": { "type": "int" },
+          "unit_price": { "type": "float" }
+        }
+      }
+    },
+
+    "support_tickets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "ticket_id": { "type": "str" },
+          "channel": { "type": "str" },
+          "opened_at": { "type": "str" },
+          "priority": { "type": "str" }
+        }
+      }
+    },
+
+    "preferences": {
+      "type": "object",
+      "properties": {
+        "theme": { "type": "str" },
+        "notifications_enabled": { "type": "bool" },
+        "favorite_categories": {
+          "type": "array",
+          "items": { "type": "str" }
+        }
+      }
+    },
+
+    "tags": {
+      "type": "array",
+      "items": { "type": "str" }
+    }
   }
 }

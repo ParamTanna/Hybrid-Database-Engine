@@ -1,4 +1,5 @@
 from typing import Any
+import hybrid_framework.config as config
 import hybrid_framework.metadata_manager as metadata_manager
 import hybrid_framework.schema_registry as schema_registry
 import hybrid_framework.crud as crud
@@ -48,7 +49,7 @@ class QueryEngine:
                 self.crud_manager.insert_record(decided_rec, sql_tables, mongo_collections, field_placement, flattened_objects)
                 # Buffer undecided
                 if undecided_fields:
-                    ts = processed[metadata_manager.config.JOIN_KEY]
+                    ts = processed[config.JOIN_KEY]
                     self.buffer_manager.add_pending_fields(ts, undecided_fields)
                     
                 return {"status": "ok", "summary": {"decided_fields": list(decided_rec.keys()), "buffered_fields": list(undecided_fields.keys())}}

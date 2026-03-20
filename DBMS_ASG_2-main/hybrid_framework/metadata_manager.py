@@ -39,15 +39,25 @@ def save(data: dict) -> None:
 # ──────────────────────────────────────────────────────────────────────────────
 
 def save_schema(schema_dict: dict) -> None:
-    """Update the 'schema' key and save."""
+    """Persist full schema plus a flat index of nested field paths (properties / array items)."""
+    import hybrid_framework.schema_registry as schema_registry
+
     data = load()
     data["schema"] = schema_dict
+    data["schema_nested_paths"] = schema_registry.build_nested_field_index(
+        schema_dict.get("fields", {})
+    )
     save(data)
 
 
 def get_schema() -> dict:
     """Return metadata['schema'] or {}."""
     return load().get("schema", {})
+
+
+def get_schema_nested_paths() -> dict:
+    """Dot-path index of nested schema (object/array shapes); may be {} if no schema saved yet."""
+    return load().get("schema_nested_paths", {})
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -69,13 +79,39 @@ def get_cumulative_stats() -> dict:
 # Field placement
 # ──────────────────────────────────────────────────────────────────────────────
 
-def save_field_placement(placement: dict) -> None:
-    """Merge new placement decisions into existing 'field_placement' and save."""
+def save_field_placement(placement: dict, *, replace: bool = False) -> None:
+    """Persist field_placement. Use replace=True after a full re-classify to drop stale keys."""
     data = load()
-    existing = data.get("field_placement", {})
-    existing.update(placement)
-    data["field_placement"] = existing
+    if replace:
+        data["field_placement"] = dict(placement)
+    else:
+        existing = data.get("field_placement", {})
+        existing.update(placement)
+        data["field_placement"] = existing
     save(data)
+
+
+def purge_field_from_cumulative_and_placement(field_name: str) -> None:
+    """Remove a field from cumulative stats and placement (e.g. legacy sys_ingested_at)."""
+    data = load()
+    cum = data.get("cumulative_stats")
+    if isinstance(cum, dict) and "fields" in cum and field_name in cum["fields"]:
+        del cum["fields"][field_name]
+        data["cumulative_stats"] = cum
+    pl = data.get("field_placement", {})
+    if field_name in pl:
+        pl = dict(pl)
+        del pl[field_name]
+        data["field_placement"] = pl
+    save(data)
+
+
+def ensure_buffer_json() -> None:
+    """Create data/buffer.json with the default shape if it does not exist yet."""
+    config.DATA_DIR.mkdir(parents=True, exist_ok=True)
+    if not config.BUFFER_FILE.exists():
+        with open(config.BUFFER_FILE, "w", encoding="utf-8") as f:
+            json.dump({"pending_fields": {}, "new_since_last_eval": 0}, f, indent=2)
 
 
 def get_field_placement() -> dict:
@@ -91,28 +127,27 @@ def get_placement_for_field(field_name: str) -> dict | None:
 # ──────────────────────────────────────────────────────────────────────────────
 
 def save_sql_tables(tables_info: dict) -> None:
-    """Merge into 'sql_tables'; also persist flattened_objects if present.
+    """Persist SQL table blueprints and optional flattened_objects.
 
-    tables_info may be the full result dict from build_sql_table_schema:
-        {"tables": {...}, "flattened_objects": {...}, "dimension_tables_meta": {...}}
-    or just a plain {table_name: table_info} dict.
+    Preferred shape from normalization (replace whole graph — no stale dim/child tables):
+        {"tables": {table_name: table_info, ...}, "flattened_objects": {...}, ...}
 
-    Everything is written in a single save() call so the two keys cannot
-    overwrite each other (the previous implementation called save_flattened_objects()
-    then save(data) where data was loaded before the flattened_objects write,
-    silently discarding what save_flattened_objects had just persisted).
+    Legacy shape (merge table definitions into existing metadata):
+        {table_name: table_info, ...}
+
+    Everything is written in a single save() call.
     """
     data = load()
-    existing = data.get("sql_tables", {})
     if "tables" in tables_info:
-        existing.update(tables_info["tables"])
+        data["sql_tables"] = {k: v for k, v in tables_info["tables"].items()}
+        if "flattened_objects" in tables_info:
+            data["flattened_objects"] = dict(tables_info["flattened_objects"])
+        else:
+            data["flattened_objects"] = {}
     else:
+        existing = data.get("sql_tables", {})
         existing.update(tables_info)
-    data["sql_tables"] = existing
-    if "flattened_objects" in tables_info:
-        flat_existing = data.get("flattened_objects", {})
-        flat_existing.update(tables_info["flattened_objects"])
-        data["flattened_objects"] = flat_existing
+        data["sql_tables"] = existing
     save(data)
 
 
@@ -163,10 +198,10 @@ def save_3nf_dimension_tables(dim_tables: dict) -> None:
 
     dim_tables has the shape:
         {
-            "student_id_dim": {
-                "determinant":      "student_id",
-                "dependent_fields": ["username", "name", "email"],
-                "all_fields":       ["student_id", "username", "name", "email"],
+            "customer_id_dim": {
+                "determinant":      "customer_id",
+                "dependent_fields": ["customer_login", "full_name", "email"],
+                "all_fields":       ["customer_id", "customer_login", "full_name", "email"],
             },
             ...
         }

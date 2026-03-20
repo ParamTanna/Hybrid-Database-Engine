@@ -1,29 +1,287 @@
 {
+  "schema": {
+    "_doc": "Only global_record_key is user-defined for correlation. A secondary scalar field (e.g. customer_login) is inferred from other schema fields for child SQL rows / Mongo anchors.",
+    "global_record_key": {
+      "field": "hybrid_record_id",
+      "policy": "uuid_v4"
+    },
+    "fields": {
+      "hybrid_record_id": {
+        "type": "str",
+        "not_null": true,
+        "unique": true
+      },
+      "customer_login": {
+        "type": "str",
+        "not_null": true
+      },
+      "customer_id": {
+        "type": "int",
+        "not_null": true,
+        "unique": true
+      },
+      "full_name": {
+        "type": "str",
+        "not_null": true
+      },
+      "email": {
+        "type": "str"
+      },
+      "account_balance": {
+        "type": "float"
+      },
+      "loyalty_points": {
+        "type": "int"
+      },
+      "is_premium": {
+        "type": "bool"
+      },
+      "phone": {
+        "type": "str"
+      },
+      "signup_year": {
+        "type": "int"
+      },
+      "billing_address": {
+        "type": "object",
+        "properties": {
+          "street": {
+            "type": "str"
+          },
+          "city": {
+            "type": "str"
+          },
+          "region": {
+            "type": "str"
+          },
+          "postal_code": {
+            "type": "str"
+          },
+          "country": {
+            "type": "str"
+          }
+        }
+      },
+      "shipping_address": {
+        "type": "object",
+        "properties": {
+          "line1": {
+            "type": "str"
+          },
+          "line2": {
+            "type": "str"
+          },
+          "city": {
+            "type": "str"
+          },
+          "postal_code": {
+            "type": "str"
+          }
+        }
+      },
+      "order_totals_history": {
+        "type": "array",
+        "items": {
+          "type": "float"
+        }
+      },
+      "active_orders": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "order_id": {
+              "type": "str",
+              "not_null": true
+            },
+            "sku": {
+              "type": "str"
+            },
+            "quantity": {
+              "type": "int"
+            },
+            "unit_price": {
+              "type": "float"
+            }
+          }
+        }
+      },
+      "support_tickets": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "ticket_id": {
+              "type": "str"
+            },
+            "channel": {
+              "type": "str"
+            },
+            "opened_at": {
+              "type": "str"
+            },
+            "priority": {
+              "type": "str"
+            }
+          }
+        }
+      },
+      "preferences": {
+        "type": "object",
+        "properties": {
+          "theme": {
+            "type": "str"
+          },
+          "notifications_enabled": {
+            "type": "bool"
+          },
+          "favorite_categories": {
+            "type": "array",
+            "items": {
+              "type": "str"
+            }
+          }
+        }
+      },
+      "tags": {
+        "type": "array",
+        "items": {
+          "type": "str"
+        }
+      }
+    }
+  },
+  "schema_nested_paths": {
+    "billing_address.street": {
+      "type": "str",
+      "parent": "billing_address"
+    },
+    "billing_address.city": {
+      "type": "str",
+      "parent": "billing_address"
+    },
+    "billing_address.region": {
+      "type": "str",
+      "parent": "billing_address"
+    },
+    "billing_address.postal_code": {
+      "type": "str",
+      "parent": "billing_address"
+    },
+    "billing_address.country": {
+      "type": "str",
+      "parent": "billing_address"
+    },
+    "shipping_address.line1": {
+      "type": "str",
+      "parent": "shipping_address"
+    },
+    "shipping_address.line2": {
+      "type": "str",
+      "parent": "shipping_address"
+    },
+    "shipping_address.city": {
+      "type": "str",
+      "parent": "shipping_address"
+    },
+    "shipping_address.postal_code": {
+      "type": "str",
+      "parent": "shipping_address"
+    },
+    "order_totals_history[]": {
+      "type": "float",
+      "parent_array": "order_totals_history",
+      "array_items": true
+    },
+    "active_orders.order_id": {
+      "type": "str",
+      "not_null": true,
+      "parent": "active_orders",
+      "in_array_items": true
+    },
+    "active_orders.sku": {
+      "type": "str",
+      "parent": "active_orders",
+      "in_array_items": true
+    },
+    "active_orders.quantity": {
+      "type": "int",
+      "parent": "active_orders",
+      "in_array_items": true
+    },
+    "active_orders.unit_price": {
+      "type": "float",
+      "parent": "active_orders",
+      "in_array_items": true
+    },
+    "support_tickets.ticket_id": {
+      "type": "str",
+      "parent": "support_tickets",
+      "in_array_items": true
+    },
+    "support_tickets.channel": {
+      "type": "str",
+      "parent": "support_tickets",
+      "in_array_items": true
+    },
+    "support_tickets.opened_at": {
+      "type": "str",
+      "parent": "support_tickets",
+      "in_array_items": true
+    },
+    "support_tickets.priority": {
+      "type": "str",
+      "parent": "support_tickets",
+      "in_array_items": true
+    },
+    "preferences.theme": {
+      "type": "str",
+      "parent": "preferences"
+    },
+    "preferences.notifications_enabled": {
+      "type": "bool",
+      "parent": "preferences"
+    },
+    "preferences.favorite_categories": {
+      "type": "array",
+      "parent": "preferences"
+    },
+    "preferences.favorite_categories[]": {
+      "type": "str",
+      "parent_array": "preferences.favorite_categories",
+      "array_items": true
+    },
+    "tags[]": {
+      "type": "str",
+      "parent_array": "tags",
+      "array_items": true
+    }
+  },
   "cumulative_stats": {
     "total_records": 100,
     "fields": {
-      "username": {
+      "customer_login": {
         "presence_count": 100,
         "types": {
           "str": 100
         },
-        "unique_count_approx": 90,
+        "unique_count_approx": 91,
         "has_nested": false
       },
-      "student_id": {
+      "customer_id": {
         "presence_count": 100,
         "types": {
           "int": 100
         },
-        "unique_count_approx": 90,
+        "unique_count_approx": 91,
         "has_nested": false
       },
-      "name": {
+      "full_name": {
         "presence_count": 100,
         "types": {
           "str": 100
         },
-        "unique_count_approx": 90,
+        "unique_count_approx": 91,
         "has_nested": false
       },
       "email": {
@@ -31,42 +289,118 @@
         "types": {
           "str": 100
         },
-        "unique_count_approx": 90,
+        "unique_count_approx": 91,
         "has_nested": false
       },
-      "is_active": {
-        "presence_count": 78,
+      "is_premium": {
+        "presence_count": 63,
         "types": {
-          "bool": 78
+          "bool": 63
         },
         "unique_count_approx": 2,
         "has_nested": false
       },
-      "cgpa_history": {
+      "billing_address": {
+        "presence_count": 78,
+        "types": {
+          "dict": 78
+        },
+        "unique_count_approx": 78,
+        "has_nested": true,
+        "subfields": {
+          "street": {
+            "presence_count": 78,
+            "types": {
+              "str": 78
+            },
+            "unique_count_approx": 78,
+            "has_nested": false
+          },
+          "city": {
+            "presence_count": 78,
+            "types": {
+              "str": 78
+            },
+            "unique_count_approx": 78,
+            "has_nested": false
+          },
+          "region": {
+            "presence_count": 78,
+            "types": {
+              "str": 78
+            },
+            "unique_count_approx": 51,
+            "has_nested": false
+          },
+          "postal_code": {
+            "presence_count": 78,
+            "types": {
+              "str": 78
+            },
+            "unique_count_approx": 78,
+            "has_nested": false
+          },
+          "country": {
+            "presence_count": 78,
+            "types": {
+              "str": 78
+            },
+            "unique_count_approx": 72,
+            "has_nested": false
+          }
+        }
+      },
+      "order_totals_history": {
+        "presence_count": 50,
+        "types": {
+          "list": 50
+        },
+        "unique_count_approx": 50,
+        "has_nested": true
+      },
+      "active_orders": {
+        "presence_count": 69,
+        "types": {
+          "list": 69
+        },
+        "unique_count_approx": 69,
+        "has_nested": true
+      },
+      "preferences": {
         "presence_count": 51,
         "types": {
-          "list": 51
+          "dict": 51
         },
-        "unique_count_approx": 51,
-        "has_nested": true
+        "unique_count_approx": 49,
+        "has_nested": true,
+        "subfields": {
+          "theme": {
+            "presence_count": 51,
+            "types": {
+              "str": 51
+            },
+            "unique_count_approx": 3,
+            "has_nested": false
+          },
+          "notifications_enabled": {
+            "presence_count": 51,
+            "types": {
+              "bool": 51
+            },
+            "unique_count_approx": 2,
+            "has_nested": false
+          },
+          "favorite_categories": {
+            "presence_count": 51,
+            "types": {
+              "list": 51
+            },
+            "unique_count_approx": 42,
+            "has_nested": true
+          }
+        }
       },
-      "enrolled_courses": {
-        "presence_count": 65,
-        "types": {
-          "list": 65
-        },
-        "unique_count_approx": 64,
-        "has_nested": true
-      },
-      "research_interests": {
-        "presence_count": 35,
-        "types": {
-          "list": 35
-        },
-        "unique_count_approx": 35,
-        "has_nested": true
-      },
-      "sys_ingested_at": {
+      "hybrid_record_id": {
         "presence_count": 100,
         "types": {
           "str": 100
@@ -74,190 +408,471 @@
         "unique_count_approx": 100,
         "has_nested": false
       },
-      "department": {
-        "presence_count": 22,
-        "types": {
-          "str": 22
-        },
-        "unique_count_approx": 6,
-        "has_nested": false
-      },
-      "year_of_study": {
-        "presence_count": 80,
-        "types": {
-          "int": 80
-        },
-        "unique_count_approx": 5,
-        "has_nested": false
-      },
-      "address": {
-        "presence_count": 67,
-        "types": {
-          "dict": 67
-        },
-        "unique_count_approx": 67,
-        "has_nested": true
-      },
       "phone": {
-        "presence_count": 19,
+        "presence_count": 60,
         "types": {
-          "str": 15,
-          "null": 3,
-          "int": 1
+          "str": 55,
+          "int": 5
         },
-        "unique_count_approx": 17,
+        "unique_count_approx": 41,
         "has_nested": false
       },
-      "submissions": {
-        "presence_count": 51,
+      "signup_year": {
+        "presence_count": 65,
         "types": {
-          "list": 51
+          "int": 65
         },
-        "unique_count_approx": 51,
+        "unique_count_approx": 9,
+        "has_nested": false
+      },
+      "shipping_address": {
+        "presence_count": 61,
+        "types": {
+          "dict": 61
+        },
+        "unique_count_approx": 61,
+        "has_nested": true,
+        "subfields": {
+          "line1": {
+            "presence_count": 61,
+            "types": {
+              "str": 61
+            },
+            "unique_count_approx": 61,
+            "has_nested": false
+          },
+          "line2": {
+            "presence_count": 61,
+            "types": {
+              "str": 61
+            },
+            "unique_count_approx": 27,
+            "has_nested": false
+          },
+          "city": {
+            "presence_count": 61,
+            "types": {
+              "str": 61
+            },
+            "unique_count_approx": 60,
+            "has_nested": false
+          },
+          "postal_code": {
+            "presence_count": 61,
+            "types": {
+              "str": 61
+            },
+            "unique_count_approx": 61,
+            "has_nested": false
+          }
+        }
+      },
+      "tags": {
+        "presence_count": 50,
+        "types": {
+          "list": 50
+        },
+        "unique_count_approx": 50,
         "has_nested": true
       },
-      "gpa": {
-        "presence_count": 41,
+      "account_balance": {
+        "presence_count": 76,
         "types": {
-          "float": 41
+          "float": 76
         },
-        "unique_count_approx": 31,
+        "unique_count_approx": 76,
         "has_nested": false
       },
-      "age": {
-        "presence_count": 43,
+      "loyalty_points": {
+        "presence_count": 65,
         "types": {
-          "int": 43
+          "int": 65
         },
-        "unique_count_approx": 13,
+        "unique_count_approx": 65,
         "has_nested": false
+      },
+      "support_tickets": {
+        "presence_count": 53,
+        "types": {
+          "list": 53
+        },
+        "unique_count_approx": 53,
+        "has_nested": true
       }
     }
   },
   "total_records_seen": 100,
   "field_placement": {
-    "username": {
+    "customer_login": {
       "backend": "sql",
-      "unique": false,
-      "reason": "stable_flat"
+      "table": "customer_id_dim",
+      "reason": "3nf_decomposition"
     },
-    "student_id": {
+    "customer_id": {
       "backend": "sql",
-      "unique": false,
-      "reason": "stable_flat"
+      "table": "records",
+      "dimension_table": "customer_id_dim",
+      "reason": "3nf_foreign_key"
     },
-    "name": {
+    "full_name": {
       "backend": "sql",
-      "unique": false,
-      "reason": "stable_flat"
+      "table": "customer_id_dim",
+      "reason": "3nf_decomposition"
     },
     "email": {
       "backend": "sql",
-      "unique": false,
-      "reason": "stable_flat"
+      "table": "customer_id_dim",
+      "reason": "3nf_decomposition"
     },
-    "is_active": {
+    "is_premium": {
       "backend": "sql",
-      "unique": false,
-      "reason": "stable_flat"
+      "table": "customer_id_dim",
+      "reason": "3nf_decomposition"
     },
-    "cgpa_history": {
+    "billing_address": {
+      "backend": "sql",
+      "table": "records",
+      "strategy": "inline",
+      "reason": "nested_object_normalization"
+    },
+    "order_totals_history": {
       "backend": "mongo",
       "unique": false,
       "reason": "nested_or_complex"
     },
-    "enrolled_courses": {
+    "active_orders": {
+      "backend": "sql",
+      "table": "active_orders",
+      "reason": "repeating_group_normalization"
+    },
+    "preferences": {
       "backend": "mongo",
       "unique": false,
       "reason": "nested_or_complex"
     },
-    "research_interests": {
-      "backend": "mongo",
-      "unique": false,
-      "reason": "nested_or_complex"
-    },
-    "sys_ingested_at": {
+    "hybrid_record_id": {
       "backend": "sql",
       "unique": true,
       "reason": "join_key"
     },
-    "department": {
-      "backend": "undecided",
-      "unique": false,
-      "reason": "insufficient_observations"
-    },
-    "year_of_study": {
-      "backend": "sql",
-      "unique": false,
-      "reason": "stable_flat"
-    },
-    "address": {
-      "backend": "mongo",
-      "unique": false,
-      "reason": "nested_or_complex"
-    },
     "phone": {
-      "backend": "undecided",
+      "backend": "mongo",
       "unique": false,
-      "reason": "insufficient_observations"
+      "reason": "unstable_or_sparse"
     },
-    "submissions": {
+    "signup_year": {
+      "backend": "sql",
+      "table": "customer_id_dim",
+      "reason": "3nf_decomposition"
+    },
+    "shipping_address": {
+      "backend": "sql",
+      "table": "records",
+      "strategy": "inline",
+      "reason": "nested_object_normalization"
+    },
+    "tags": {
       "backend": "mongo",
       "unique": false,
       "reason": "nested_or_complex"
     },
-    "gpa": {
-      "backend": "mongo",
-      "unique": false,
-      "reason": "unstable_or_sparse"
+    "account_balance": {
+      "backend": "sql",
+      "table": "customer_id_dim",
+      "reason": "3nf_decomposition"
     },
-    "age": {
-      "backend": "mongo",
-      "unique": false,
-      "reason": "unstable_or_sparse"
+    "loyalty_points": {
+      "backend": "sql",
+      "table": "customer_id_dim",
+      "reason": "3nf_decomposition"
+    },
+    "support_tickets": {
+      "backend": "sql",
+      "table": "support_tickets",
+      "reason": "repeating_group_normalization"
     }
   },
   "sql_tables": {
     "records": {
       "columns": {
-        "username": {
-          "sql_type": "TEXT",
+        "customer_id": {
+          "sql_type": "INTEGER",
+          "primary_key": false,
           "unique": false,
-          "not_null": false
+          "not_null": true
         },
-        "student_id": {
-          "sql_type": "TEXT",
-          "unique": false,
-          "not_null": false
-        },
-        "name": {
-          "sql_type": "TEXT",
-          "unique": false,
-          "not_null": false
-        },
-        "email": {
-          "sql_type": "TEXT",
-          "unique": false,
-          "not_null": false
-        },
-        "is_active": {
-          "sql_type": "TEXT",
-          "unique": false,
-          "not_null": false
-        },
-        "sys_ingested_at": {
+        "hybrid_record_id": {
           "sql_type": "TEXT",
           "unique": true,
+          "not_null": true,
+          "primary_key": true
+        },
+        "billing_address.street": {
+          "sql_type": "TEXT",
+          "unique": false,
           "not_null": false
         },
-        "year_of_study": {
+        "billing_address.city": {
+          "sql_type": "TEXT",
+          "unique": false,
+          "not_null": false
+        },
+        "billing_address.region": {
+          "sql_type": "TEXT",
+          "unique": false,
+          "not_null": false
+        },
+        "billing_address.postal_code": {
+          "sql_type": "TEXT",
+          "unique": false,
+          "not_null": false
+        },
+        "billing_address.country": {
+          "sql_type": "TEXT",
+          "unique": false,
+          "not_null": false
+        },
+        "shipping_address.line1": {
+          "sql_type": "TEXT",
+          "unique": false,
+          "not_null": false
+        },
+        "shipping_address.line2": {
+          "sql_type": "TEXT",
+          "unique": false,
+          "not_null": false
+        },
+        "shipping_address.city": {
+          "sql_type": "TEXT",
+          "unique": false,
+          "not_null": false
+        },
+        "shipping_address.postal_code": {
           "sql_type": "TEXT",
           "unique": false,
           "not_null": false
         }
       },
-      "primary_key": "sys_ingested_at",
+      "primary_key": "hybrid_record_id",
+      "foreign_keys": [
+        {
+          "column": "customer_id",
+          "references_table": "customer_id_dim",
+          "references_column": "customer_id"
+        }
+      ]
+    },
+    "active_orders": {
+      "columns": {
+        "_row_id": {
+          "sql_type": "INTEGER",
+          "primary_key": true
+        },
+        "hybrid_record_id": {
+          "sql_type": "TEXT",
+          "not_null": true
+        },
+        "customer_login": {
+          "sql_type": "TEXT"
+        },
+        "order_id": {
+          "sql_type": "TEXT"
+        },
+        "sku": {
+          "sql_type": "TEXT"
+        },
+        "quantity": {
+          "sql_type": "INTEGER"
+        },
+        "unit_price": {
+          "sql_type": "REAL"
+        }
+      },
+      "primary_key": "_row_id",
+      "foreign_keys": [
+        {
+          "column": "hybrid_record_id",
+          "references_table": "records",
+          "references_column": "hybrid_record_id"
+        }
+      ]
+    },
+    "support_tickets": {
+      "columns": {
+        "_row_id": {
+          "sql_type": "INTEGER",
+          "primary_key": true
+        },
+        "hybrid_record_id": {
+          "sql_type": "TEXT",
+          "not_null": true
+        },
+        "customer_login": {
+          "sql_type": "TEXT"
+        },
+        "ticket_id": {
+          "sql_type": "TEXT"
+        },
+        "channel": {
+          "sql_type": "TEXT"
+        },
+        "opened_at": {
+          "sql_type": "TEXT"
+        },
+        "priority": {
+          "sql_type": "TEXT"
+        }
+      },
+      "primary_key": "_row_id",
+      "foreign_keys": [
+        {
+          "column": "hybrid_record_id",
+          "references_table": "records",
+          "references_column": "hybrid_record_id"
+        }
+      ]
+    },
+    "customer_id_dim": {
+      "columns": {
+        "loyalty_points": {
+          "sql_type": "INTEGER",
+          "primary_key": false,
+          "unique": false,
+          "not_null": false
+        },
+        "customer_login": {
+          "sql_type": "TEXT",
+          "primary_key": false,
+          "unique": false,
+          "not_null": true
+        },
+        "signup_year": {
+          "sql_type": "INTEGER",
+          "primary_key": false,
+          "unique": false,
+          "not_null": false
+        },
+        "is_premium": {
+          "sql_type": "INTEGER",
+          "primary_key": false,
+          "unique": false,
+          "not_null": false
+        },
+        "account_balance": {
+          "sql_type": "REAL",
+          "primary_key": false,
+          "unique": false,
+          "not_null": false
+        },
+        "customer_id": {
+          "sql_type": "INTEGER",
+          "primary_key": true,
+          "unique": true,
+          "not_null": true
+        },
+        "email": {
+          "sql_type": "TEXT",
+          "primary_key": false,
+          "unique": false,
+          "not_null": false
+        },
+        "full_name": {
+          "sql_type": "TEXT",
+          "primary_key": false,
+          "unique": false,
+          "not_null": true
+        }
+      },
+      "primary_key": "customer_id",
       "foreign_keys": []
+    }
+  },
+  "flattened_objects": {
+    "billing_address": [
+      "billing_address.street",
+      "billing_address.city",
+      "billing_address.region",
+      "billing_address.postal_code",
+      "billing_address.country"
+    ],
+    "shipping_address": [
+      "shipping_address.line1",
+      "shipping_address.line2",
+      "shipping_address.city",
+      "shipping_address.postal_code"
+    ]
+  },
+  "3nf_dimension_tables": {
+    "customer_id_dim": {
+      "determinant": "customer_id",
+      "dependent_fields": [
+        "loyalty_points",
+        "customer_login",
+        "signup_year",
+        "is_premium",
+        "email",
+        "account_balance",
+        "full_name"
+      ],
+      "all_fields": [
+        "loyalty_points",
+        "customer_login",
+        "signup_year",
+        "is_premium",
+        "account_balance",
+        "customer_id",
+        "email",
+        "full_name"
+      ]
+    }
+  },
+  "mongo_collections": {
+    "main_documents": {
+      "strategy": "embed",
+      "embedded_fields": [
+        "billing_address",
+        "order_totals_history",
+        "preferences",
+        "phone",
+        "shipping_address",
+        "tags"
+      ],
+      "fields": [
+        "customer_login",
+        "hybrid_record_id",
+        "billing_address",
+        "order_totals_history",
+        "preferences",
+        "phone",
+        "shipping_address",
+        "tags"
+      ]
+    },
+    "active_orders": {
+      "strategy": "reference",
+      "join_key": "hybrid_record_id",
+      "fields": [
+        "sku",
+        "order_id",
+        "quantity",
+        "unit_price",
+        "customer_login",
+        "hybrid_record_id"
+      ],
+      "reason": "update_heavy"
+    },
+    "support_tickets": {
+      "strategy": "reference",
+      "join_key": "hybrid_record_id",
+      "fields": [
+        "channel",
+        "priority",
+        "ticket_id",
+        "opened_at",
+        "customer_login",
+        "hybrid_record_id"
+      ],
+      "reason": "update_heavy"
     }
   }
 }
