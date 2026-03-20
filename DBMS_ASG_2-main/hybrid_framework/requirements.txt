@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+faker
+sse-starlette
+sqlalchemy>=2.0
+pymongo>=4.0
+httpx>=0.25

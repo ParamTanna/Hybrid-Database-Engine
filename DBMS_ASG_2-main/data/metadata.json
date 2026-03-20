@@ -1,0 +1,263 @@
+{
+  "cumulative_stats": {
+    "total_records": 100,
+    "fields": {
+      "username": {
+        "presence_count": 100,
+        "types": {
+          "str": 100
+        },
+        "unique_count_approx": 90,
+        "has_nested": false
+      },
+      "student_id": {
+        "presence_count": 100,
+        "types": {
+          "int": 100
+        },
+        "unique_count_approx": 90,
+        "has_nested": false
+      },
+      "name": {
+        "presence_count": 100,
+        "types": {
+          "str": 100
+        },
+        "unique_count_approx": 90,
+        "has_nested": false
+      },
+      "email": {
+        "presence_count": 100,
+        "types": {
+          "str": 100
+        },
+        "unique_count_approx": 90,
+        "has_nested": false
+      },
+      "is_active": {
+        "presence_count": 78,
+        "types": {
+          "bool": 78
+        },
+        "unique_count_approx": 2,
+        "has_nested": false
+      },
+      "cgpa_history": {
+        "presence_count": 51,
+        "types": {
+          "list": 51
+        },
+        "unique_count_approx": 51,
+        "has_nested": true
+      },
+      "enrolled_courses": {
+        "presence_count": 65,
+        "types": {
+          "list": 65
+        },
+        "unique_count_approx": 64,
+        "has_nested": true
+      },
+      "research_interests": {
+        "presence_count": 35,
+        "types": {
+          "list": 35
+        },
+        "unique_count_approx": 35,
+        "has_nested": true
+      },
+      "sys_ingested_at": {
+        "presence_count": 100,
+        "types": {
+          "str": 100
+        },
+        "unique_count_approx": 100,
+        "has_nested": false
+      },
+      "department": {
+        "presence_count": 22,
+        "types": {
+          "str": 22
+        },
+        "unique_count_approx": 6,
+        "has_nested": false
+      },
+      "year_of_study": {
+        "presence_count": 80,
+        "types": {
+          "int": 80
+        },
+        "unique_count_approx": 5,
+        "has_nested": false
+      },
+      "address": {
+        "presence_count": 67,
+        "types": {
+          "dict": 67
+        },
+        "unique_count_approx": 67,
+        "has_nested": true
+      },
+      "phone": {
+        "presence_count": 19,
+        "types": {
+          "str": 15,
+          "null": 3,
+          "int": 1
+        },
+        "unique_count_approx": 17,
+        "has_nested": false
+      },
+      "submissions": {
+        "presence_count": 51,
+        "types": {
+          "list": 51
+        },
+        "unique_count_approx": 51,
+        "has_nested": true
+      },
+      "gpa": {
+        "presence_count": 41,
+        "types": {
+          "float": 41
+        },
+        "unique_count_approx": 31,
+        "has_nested": false
+      },
+      "age": {
+        "presence_count": 43,
+        "types": {
+          "int": 43
+        },
+        "unique_count_approx": 13,
+        "has_nested": false
+      }
+    }
+  },
+  "total_records_seen": 100,
+  "field_placement": {
+    "username": {
+      "backend": "sql",
+      "unique": false,
+      "reason": "stable_flat"
+    },
+    "student_id": {
+      "backend": "sql",
+      "unique": false,
+      "reason": "stable_flat"
+    },
+    "name": {
+      "backend": "sql",
+      "unique": false,
+      "reason": "stable_flat"
+    },
+    "email": {
+      "backend": "sql",
+      "unique": false,
+      "reason": "stable_flat"
+    },
+    "is_active": {
+      "backend": "sql",
+      "unique": false,
+      "reason": "stable_flat"
+    },
+    "cgpa_history": {
+      "backend": "mongo",
+      "unique": false,
+      "reason": "nested_or_complex"
+    },
+    "enrolled_courses": {
+      "backend": "mongo",
+      "unique": false,
+      "reason": "nested_or_complex"
+    },
+    "research_interests": {
+      "backend": "mongo",
+      "unique": false,
+      "reason": "nested_or_complex"
+    },
+    "sys_ingested_at": {
+      "backend": "sql",
+      "unique": true,
+      "reason": "join_key"
+    },
+    "department": {
+      "backend": "undecided",
+      "unique": false,
+      "reason": "insufficient_observations"
+    },
+    "year_of_study": {
+      "backend": "sql",
+      "unique": false,
+      "reason": "stable_flat"
+    },
+    "address": {
+      "backend": "mongo",
+      "unique": false,
+      "reason": "nested_or_complex"
+    },
+    "phone": {
+      "backend": "undecided",
+      "unique": false,
+      "reason": "insufficient_observations"
+    },
+    "submissions": {
+      "backend": "mongo",
+      "unique": false,
+      "reason": "nested_or_complex"
+    },
+    "gpa": {
+      "backend": "mongo",
+      "unique": false,
+      "reason": "unstable_or_sparse"
+    },
+    "age": {
+      "backend": "mongo",
+      "unique": false,
+      "reason": "unstable_or_sparse"
+    }
+  },
+  "sql_tables": {
+    "records": {
+      "columns": {
+        "username": {
+          "sql_type": "TEXT",
+          "unique": false,
+          "not_null": false
+        },
+        "student_id": {
+          "sql_type": "TEXT",
+          "unique": false,
+          "not_null": false
+        },
+        "name": {
+          "sql_type": "TEXT",
+          "unique": false,
+          "not_null": false
+        },
+        "email": {
+          "sql_type": "TEXT",
+          "unique": false,
+          "not_null": false
+        },
+        "is_active": {
+          "sql_type": "TEXT",
+          "unique": false,
+          "not_null": false
+        },
+        "sys_ingested_at": {
+          "sql_type": "TEXT",
+          "unique": true,
+          "not_null": false
+        },
+        "year_of_study": {
+          "sql_type": "TEXT",
+          "unique": false,
+          "not_null": false
+        }
+      },
+      "primary_key": "sys_ingested_at",
+      "foreign_keys": []
+    }
+  }
+}

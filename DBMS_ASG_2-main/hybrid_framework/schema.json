@@ -1,0 +1,19 @@
+{
+  "fields": {
+    "username":           {"type": "str",   "not_null": true},
+    "student_id":         {"type": "int",   "not_null": true, "unique": true},
+    "name":               {"type": "str",   "not_null": true},
+    "email":              {"type": "str"},
+    "age":                {"type": "int"},
+    "gpa":                {"type": "float"},
+    "department":         {"type": "str"},
+    "year_of_study":      {"type": "int"},
+    "is_active":          {"type": "bool"},
+    "phone":              {"type": "str"},
+    "address":            {"type": "object"},
+    "cgpa_history":       {"type": "array"},
+    "enrolled_courses":   {"type": "array"},
+    "submissions":        {"type": "array"},
+    "research_interests": {"type": "array"}
+  }
+}
