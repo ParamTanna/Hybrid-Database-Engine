@@ -451,6 +451,14 @@ def execute_read(query: dict, meta: dict) -> list[dict]:
         print("[WARN] No fields specified in query.")
         return []
 
+    # Expand wildcard "*" to all top-level fields in metadata
+    if "*" in requested:
+        top_level = [
+            fname for fname, fdata in meta["fields"].items()
+            if fdata.get("parent") is None
+        ]
+        requested = top_level
+
     # ── Step 1: resolve fields to backends ───────────────────────────────
     resolved = resolve_fields(requested, meta)
 
