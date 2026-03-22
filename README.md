@@ -125,7 +125,6 @@ requests
 ```bash
 git clone https://github.com/ParamTanna/DBMS_ASG_2.git
 cd DBMS_ASG_2
-git checkout final
 ```
 
 **2. Install dependencies**
