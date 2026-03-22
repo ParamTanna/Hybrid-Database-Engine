@@ -1,7 +1,7 @@
 {
   "global_key": "customer_id",
-  "registered_at": "2026-03-22T09:22:34.323134+00:00",
-  "total_records": 101,
+  "registered_at": "2026-03-22T10:43:56.074421+00:00",
+  "total_records": 100,
   "fields": {
     "customer_id": {
       "field_name": "customer_id",
@@ -14,11 +14,11 @@
       "one_to_many": null,
       "parent": null,
       "children": [],
-      "occurrence_count": 125,
+      "occurrence_count": 100,
       "total_elements": 0,
       "storage_backend": "SQL",
       "storage_detail": "SQL.customers",
-      "frequency": 1.2376
+      "frequency": 1.0
     },
     "email": {
       "field_name": "email",
@@ -31,7 +31,7 @@
       "one_to_many": null,
       "parent": null,
       "children": [],
-      "occurrence_count": 101,
+      "occurrence_count": 100,
       "total_elements": 0,
       "storage_backend": "SQL",
       "storage_detail": "SQL.customers",
@@ -42,7 +42,7 @@
       "type": "string",
       "level": 0,
       "not_null": false,
-      "unique": false,
+      "unique": true,
       "appendable": null,
       "independent_query": null,
       "one_to_many": null,
@@ -52,7 +52,7 @@
       "total_elements": 0,
       "storage_backend": "SQL",
       "storage_detail": "SQL.customers",
-      "frequency": 0.8416
+      "frequency": 0.85
     },
     "age": {
       "field_name": "age",
@@ -69,7 +69,7 @@
       "total_elements": 0,
       "storage_backend": "SQL",
       "storage_detail": "SQL.customers",
-      "frequency": 0.8812
+      "frequency": 0.89
     },
     "signup_date": {
       "field_name": "signup_date",
@@ -86,7 +86,7 @@
       "total_elements": 0,
       "storage_backend": "SQL",
       "storage_detail": "SQL.customers",
-      "frequency": 0.9406
+      "frequency": 0.95
     },
     "phone": {
       "field_name": "phone",
@@ -103,7 +103,7 @@
       "total_elements": 0,
       "storage_backend": "Mongo",
       "storage_detail": "Mongo.document",
-      "frequency": 0.3663
+      "frequency": 0.37
     },
     "nickname": {
       "field_name": "nickname",
@@ -120,7 +120,7 @@
       "total_elements": 0,
       "storage_backend": "Mongo",
       "storage_detail": "Mongo.document",
-      "frequency": 0.2277
+      "frequency": 0.23
     },
     "promo_code": {
       "field_name": "promo_code",
@@ -133,11 +133,11 @@
       "one_to_many": null,
       "parent": null,
       "children": [],
-      "occurrence_count": 8,
+      "occurrence_count": 4,
       "total_elements": 0,
       "storage_backend": "Buffer",
       "storage_detail": "Buffer",
-      "frequency": 0.0792
+      "frequency": 0.04
     },
     "beta_flag": {
       "field_name": "beta_flag",
@@ -150,11 +150,11 @@
       "one_to_many": null,
       "parent": null,
       "children": [],
-      "occurrence_count": 14,
+      "occurrence_count": 7,
       "total_elements": 0,
-      "storage_backend": "Mongo",
-      "storage_detail": "Mongo.document",
-      "frequency": 0.1386
+      "storage_backend": "Buffer",
+      "storage_detail": "Buffer",
+      "frequency": 0.07
     },
     "orders": {
       "field_name": "orders",
@@ -171,11 +171,11 @@
         "orders.amount",
         "orders.status"
       ],
-      "occurrence_count": 0,
+      "occurrence_count": 75,
       "total_elements": 187,
-      "storage_backend": "Buffer",
-      "storage_detail": "Buffer",
-      "frequency": 0.0
+      "storage_backend": "SQL",
+      "storage_detail": "SQL.orders",
+      "frequency": 0.75
     },
     "orders.order_id": {
       "field_name": "orders.order_id",
@@ -188,11 +188,11 @@
       "one_to_many": null,
       "parent": "orders",
       "children": [],
-      "occurrence_count": 75,
+      "occurrence_count": 187,
       "total_elements": 0,
-      "storage_backend": "Buffer",
-      "storage_detail": "Buffer",
-      "frequency": 0.7426
+      "storage_backend": "SQL",
+      "storage_detail": "SQL.orders",
+      "frequency": 1.87
     },
     "orders.amount": {
       "field_name": "orders.amount",
@@ -205,11 +205,11 @@
       "one_to_many": null,
       "parent": "orders",
       "children": [],
-      "occurrence_count": 75,
+      "occurrence_count": 187,
       "total_elements": 0,
-      "storage_backend": "Buffer",
-      "storage_detail": "Buffer",
-      "frequency": 0.7426
+      "storage_backend": "SQL",
+      "storage_detail": "SQL.orders",
+      "frequency": 1.87
     },
     "orders.status": {
       "field_name": "orders.status",
@@ -222,11 +222,11 @@
       "one_to_many": null,
       "parent": "orders",
       "children": [],
-      "occurrence_count": 75,
+      "occurrence_count": 187,
       "total_elements": 0,
-      "storage_backend": "Buffer",
-      "storage_detail": "Buffer",
-      "frequency": 0.7426
+      "storage_backend": "SQL",
+      "storage_detail": "SQL.orders",
+      "frequency": 1.87
     },
     "addresses": {
       "field_name": "addresses",
@@ -244,11 +244,11 @@
         "addresses.city",
         "addresses.country"
       ],
-      "occurrence_count": 0,
+      "occurrence_count": 66,
       "total_elements": 100,
-      "storage_backend": "Buffer",
-      "storage_detail": "Buffer",
-      "frequency": 0.0
+      "storage_backend": "SQL",
+      "storage_detail": "SQL.addresses",
+      "frequency": 0.66
     },
     "addresses.address_id": {
       "field_name": "addresses.address_id",
@@ -261,11 +261,11 @@
       "one_to_many": null,
       "parent": "addresses",
       "children": [],
-      "occurrence_count": 66,
+      "occurrence_count": 100,
       "total_elements": 0,
-      "storage_backend": "Buffer",
-      "storage_detail": "Buffer",
-      "frequency": 0.6535
+      "storage_backend": "SQL",
+      "storage_detail": "SQL.addresses",
+      "frequency": 1.0
     },
     "addresses.street": {
       "field_name": "addresses.street",
@@ -278,11 +278,11 @@
       "one_to_many": null,
       "parent": "addresses",
       "children": [],
-      "occurrence_count": 66,
+      "occurrence_count": 100,
       "total_elements": 0,
-      "storage_backend": "Buffer",
-      "storage_detail": "Buffer",
-      "frequency": 0.6535
+      "storage_backend": "SQL",
+      "storage_detail": "SQL.addresses",
+      "frequency": 1.0
     },
     "addresses.city": {
       "field_name": "addresses.city",
@@ -295,11 +295,11 @@
       "one_to_many": null,
       "parent": "addresses",
       "children": [],
-      "occurrence_count": 66,
+      "occurrence_count": 100,
       "total_elements": 0,
-      "storage_backend": "Buffer",
-      "storage_detail": "Buffer",
-      "frequency": 0.6535
+      "storage_backend": "SQL",
+      "storage_detail": "SQL.addresses",
+      "frequency": 1.0
     },
     "addresses.country": {
       "field_name": "addresses.country",
@@ -312,11 +312,11 @@
       "one_to_many": null,
       "parent": "addresses",
       "children": [],
-      "occurrence_count": 66,
+      "occurrence_count": 100,
       "total_elements": 0,
-      "storage_backend": "Buffer",
-      "storage_detail": "Buffer",
-      "frequency": 0.6535
+      "storage_backend": "SQL",
+      "storage_detail": "SQL.addresses",
+      "frequency": 1.0
     },
     "profile": {
       "field_name": "profile",
@@ -336,7 +336,7 @@
       "total_elements": 0,
       "storage_backend": "Mongo",
       "storage_detail": "Mongo.embed",
-      "frequency": 0.6634
+      "frequency": 0.67
     },
     "profile.bio": {
       "field_name": "profile.bio",
@@ -353,7 +353,7 @@
       "total_elements": 0,
       "storage_backend": "Mongo",
       "storage_detail": "Mongo.embed",
-      "frequency": 0.6634
+      "frequency": 0.67
     },
     "profile.website": {
       "field_name": "profile.website",
@@ -370,7 +370,7 @@
       "total_elements": 0,
       "storage_backend": "Mongo",
       "storage_detail": "Mongo.embed",
-      "frequency": 0.6634
+      "frequency": 0.67
     },
     "preferences": {
       "field_name": "preferences",
@@ -391,7 +391,7 @@
       "total_elements": 0,
       "storage_backend": "Mongo",
       "storage_detail": "Mongo.embed",
-      "frequency": 0.6634
+      "frequency": 0.67
     },
     "preferences.theme": {
       "field_name": "preferences.theme",
@@ -408,7 +408,7 @@
       "total_elements": 0,
       "storage_backend": "Mongo",
       "storage_detail": "Mongo.embed",
-      "frequency": 0.6634
+      "frequency": 0.67
     },
     "preferences.language": {
       "field_name": "preferences.language",
@@ -425,7 +425,7 @@
       "total_elements": 0,
       "storage_backend": "Mongo",
       "storage_detail": "Mongo.embed",
-      "frequency": 0.6634
+      "frequency": 0.67
     },
     "preferences.notifications": {
       "field_name": "preferences.notifications",
@@ -442,7 +442,7 @@
       "total_elements": 0,
       "storage_backend": "Mongo",
       "storage_detail": "Mongo.embed",
-      "frequency": 0.6634
+      "frequency": 0.67
     },
     "tags": {
       "field_name": "tags",
@@ -461,7 +461,7 @@
       "total_elements": 124,
       "storage_backend": "Mongo",
       "storage_detail": "Mongo.embed",
-      "frequency": 0.6238,
+      "frequency": 0.63,
       "avg_size": 1.97
     },
     "tags.tag": {
@@ -475,11 +475,11 @@
       "one_to_many": null,
       "parent": "tags",
       "children": [],
-      "occurrence_count": 63,
+      "occurrence_count": 124,
       "total_elements": 0,
       "storage_backend": "Mongo",
       "storage_detail": "Mongo.embed",
-      "frequency": 0.6238
+      "frequency": 1.24
     },
     "reviews": {
       "field_name": "reviews",
@@ -500,7 +500,7 @@
       "total_elements": 529,
       "storage_backend": "Mongo",
       "storage_detail": "Mongo.reference",
-      "frequency": 0.7228,
+      "frequency": 0.73,
       "avg_size": 7.25
     },
     "reviews.product_id": {
@@ -514,11 +514,11 @@
       "one_to_many": null,
       "parent": "reviews",
       "children": [],
-      "occurrence_count": 73,
+      "occurrence_count": 529,
       "total_elements": 0,
       "storage_backend": "Mongo",
       "storage_detail": "Mongo.reference",
-      "frequency": 0.7228
+      "frequency": 5.29
     },
     "reviews.rating": {
       "field_name": "reviews.rating",
@@ -531,11 +531,11 @@
       "one_to_many": null,
       "parent": "reviews",
       "children": [],
-      "occurrence_count": 73,
+      "occurrence_count": 529,
       "total_elements": 0,
       "storage_backend": "Mongo",
       "storage_detail": "Mongo.reference",
-      "frequency": 0.7228
+      "frequency": 5.29
     },
     "reviews.comment": {
       "field_name": "reviews.comment",
@@ -548,11 +548,11 @@
       "one_to_many": null,
       "parent": "reviews",
       "children": [],
-      "occurrence_count": 73,
+      "occurrence_count": 529,
       "total_elements": 0,
       "storage_backend": "Mongo",
       "storage_detail": "Mongo.reference",
-      "frequency": 0.7228
+      "frequency": 5.29
     },
     "support_tickets": {
       "field_name": "support_tickets",
@@ -573,7 +573,7 @@
       "total_elements": 400,
       "storage_backend": "Mongo",
       "storage_detail": "Mongo.reference",
-      "frequency": 0.5545,
+      "frequency": 0.56,
       "avg_size": 7.14
     },
     "support_tickets.ticket_id": {
@@ -587,11 +587,11 @@
       "one_to_many": null,
       "parent": "support_tickets",
       "children": [],
-      "occurrence_count": 56,
+      "occurrence_count": 400,
       "total_elements": 0,
       "storage_backend": "Mongo",
       "storage_detail": "Mongo.reference",
-      "frequency": 0.5545
+      "frequency": 4.0
     },
     "support_tickets.issue": {
       "field_name": "support_tickets.issue",
@@ -604,11 +604,11 @@
       "one_to_many": null,
       "parent": "support_tickets",
       "children": [],
-      "occurrence_count": 56,
+      "occurrence_count": 400,
       "total_elements": 0,
       "storage_backend": "Mongo",
       "storage_detail": "Mongo.reference",
-      "frequency": 0.5545
+      "frequency": 4.0
     },
     "support_tickets.resolved": {
       "field_name": "support_tickets.resolved",
@@ -621,11 +621,11 @@
       "one_to_many": null,
       "parent": "support_tickets",
       "children": [],
-      "occurrence_count": 56,
+      "occurrence_count": 400,
       "total_elements": 0,
       "storage_backend": "Mongo",
       "storage_detail": "Mongo.reference",
-      "frequency": 0.5545
+      "frequency": 4.0
     }
   },
   "key_management": {
@@ -640,14 +640,70 @@
         ],
         "primary_key": "customer_id",
         "foreign_key": null,
-        "surrogate": false
+        "surrogate": false,
+        "indexes": [
+          {
+            "column": "email",
+            "unique": true
+          },
+          {
+            "column": "name",
+            "unique": true
+          }
+        ]
+      },
+      "orders": {
+        "columns": [
+          "customer_id",
+          "order_id",
+          "amount",
+          "status"
+        ],
+        "primary_key": "order_id",
+        "foreign_key": "customer_id",
+        "surrogate": false,
+        "indexes": [
+          {
+            "column": "customer_id",
+            "unique": false
+          },
+          {
+            "column": "amount",
+            "unique": true
+          }
+        ]
+      },
+      "addresses": {
+        "columns": [
+          "customer_id",
+          "address_id",
+          "street",
+          "city",
+          "country"
+        ],
+        "primary_key": "address_id",
+        "foreign_key": "customer_id",
+        "surrogate": false,
+        "indexes": [
+          {
+            "column": "customer_id",
+            "unique": false
+          },
+          {
+            "column": "street",
+            "unique": true
+          },
+          {
+            "column": "city",
+            "unique": true
+          }
+        ]
       }
     },
     "Mongo": {
       "embed": [
         "phone",
         "nickname",
-        "beta_flag",
         "profile",
         "profile.bio",
         "profile.website",
@@ -671,15 +727,7 @@
     },
     "Buffer": [
       "promo_code",
-      "orders",
-      "orders.order_id",
-      "orders.amount",
-      "orders.status",
-      "addresses",
-      "addresses.address_id",
-      "addresses.street",
-      "addresses.city",
-      "addresses.country"
+      "beta_flag"
     ]
   }
 }
