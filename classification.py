@@ -356,6 +356,31 @@ def phase5_key_management(meta: dict) -> dict:
                 fk_idx = entry["columns"].index(global_key) if global_key in entry["columns"] else -1
                 entry["columns"].insert(fk_idx + 1, pk_col)
 
+    # ── Third pass: build index specs per table ─────────────────────────────
+    for table, entry in sql_tables.items():
+        indexes   = []
+        pk_col    = entry["primary_key"]
+        fk_col    = entry.get("foreign_key")
+        table_det = f"SQL.{table}"
+
+        # Index on FK column so JOINs and WHERE on FK are O(log n)
+        if fk_col:
+            indexes.append({"column": fk_col, "unique": False})
+
+        # UNIQUE index for every non-PK column declared unique in the schema
+        for fname, fdata in fields.items():
+            if fdata.get("storage_detail") != table_det:
+                continue
+            if fdata["type"] in ("object", "array"):
+                continue
+            col = fname.split(".")[-1]
+            if col == pk_col:
+                continue          # PK already carries implicit uniqueness
+            if fdata.get("unique"):
+                indexes.append({"column": col, "unique": True})
+
+        entry["indexes"] = indexes
+
     key_map = {
         "SQL":    sql_tables,
         "Mongo":  {"embed": mongo_embeds, "reference": mongo_refs},
@@ -371,6 +396,9 @@ def phase5_key_management(meta: dict) -> dict:
         print(f"    PK      : {info['primary_key']}  {pk_note}")
         print(f"    FK      : {info['foreign_key']}")
         print(f"    columns : {info['columns']}")
+        for idx in info.get("indexes", []):
+            kind = "UNIQUE INDEX" if idx["unique"] else "INDEX"
+            print(f"    {kind:<12}: {idx['column']}")
     print(f"\n  Mongo embed     : {mongo_embeds}")
     print(f"  Mongo reference : {mongo_refs}")
     print(f"  Buffer          : {buffer_fields}")

@@ -140,6 +140,22 @@ def setup_sqlite(meta: dict):
         for line in ddl.splitlines():
             print(f"          {line}")
 
+    # ── Create indexes after all tables exist ─────────────────────────────
+    print("\n  Indexes:")
+    for table_name, table_info in sql_tables.items():
+        for idx in table_info.get("indexes", []):
+            col       = idx["column"]
+            unique_kw = "UNIQUE " if idx["unique"] else ""
+            idx_name  = f"idx_{table_name}_{col}"
+            idx_sql   = (
+                f"CREATE {unique_kw}INDEX IF NOT EXISTS {idx_name} "
+                f"ON {table_name}({col})"
+            )
+            conn.execute(idx_sql)
+            kind = "UNIQUE" if idx["unique"] else "plain"
+            print(f"    {idx_name}  ({kind})")
+
+    conn.commit()
     conn.close()
     print(f"\n  SQLite DB created -> {SQLITE_FILE}")
     print("=" * 60)
