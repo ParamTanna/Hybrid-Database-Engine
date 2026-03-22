@@ -152,7 +152,7 @@ The simulation server generates realistic synthetic customer records and streams
 Open a **separate terminal** and run:
 
 ```bash
-python simulation_code.py
+uvicorn simulation_code:app --reload
 ```
 
 You should see:
