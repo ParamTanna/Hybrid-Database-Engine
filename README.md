@@ -41,13 +41,13 @@ The best of both worlds — chosen and maintained for you, automatically.
 | **A4** | Dashboard enhancement + benchmarking + packaging |
 
 **Headline features**
-- 🧠 **Autonomous classification** — fields routed to SQL / Mongo / Buffer by their *behavior* (frequency, structure, type), no manual schema mapping.
-- 🔀 **One logical view over two databases** — reads transparently merge SQL rows + Mongo docs into a single record.
-- 🔒 **True cross-backend ACID transactions** — PostgreSQL transaction + MongoDB multi-document transaction, committed as a unit, with rollback/convergence so the backends never diverge.
-- ⚙️ **On-the-go adaptation** — fields migrate between backends at runtime as data changes (e.g. a rare field becoming common, or a type drifting).
-- 🧩 **Configurable type-conflict policy** — coerce safe mismatches; on genuine type drift, either migrate the field to schemaless Mongo (`adaptive`) or reject (`strict`).
-- 🧵 **Concurrency-safe** — per-record locks + a reclassification lock; validated with adversarial ACID tests.
-- 📊 **Benchmarks + comparative analysis** — framework vs. direct DB access, with charts.
+-  **Autonomous classification** — fields routed to SQL / Mongo / Buffer by their *behavior* (frequency, structure, type), no manual schema mapping.
+-  **One logical view over two databases** — reads transparently merge SQL rows + Mongo docs into a single record.
+-  **True cross-backend ACID transactions** — PostgreSQL transaction + MongoDB multi-document transaction, committed as a unit, with rollback/convergence so the backends never diverge.
+-  **On-the-go adaptation** — fields migrate between backends at runtime as data changes (e.g. a rare field becoming common, or a type drifting).
+-  **Configurable type-conflict policy** — coerce safe mismatches; on genuine type drift, either migrate the field to schemaless Mongo (`adaptive`) or reject (`strict`).
+-  **Concurrency-safe** — per-record locks + a reclassification lock; validated with adversarial ACID tests.
+-  **Benchmarks + comparative analysis** — framework vs. direct DB access, with charts.
 
 ---
 
