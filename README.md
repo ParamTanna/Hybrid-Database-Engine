@@ -1,461 +1,158 @@
-# Hybrid Database Framework
-### CS 432 – Databases | Assignment 2
+# Hybrid Database Framework (CS432 Track 2)
 
-An autonomous normalization and CRUD engine that ingests raw JSON records, classifies every field using schema analysis and frequency statistics, and routes data across **SQLite**, **MongoDB**, and a persistent **Buffer** — all without any hardcoded table or collection names.
+An **adaptive database engine** that takes messy JSON, decides *on its own* whether
+each field belongs in **PostgreSQL** (structured) or **MongoDB** (flexible) — or a
+temporary **Buffer** — and then gives you **one simple logical interface** over both.
+Writes that span both databases run as a **true cross-backend transaction**, so the
+two stores never disagree.
 
----
+You query it with plain JSON like `{"operation":"read","fields":["name","orders"]}`
+and never touch SQL or Mongo directly.
 
-## Table of Contents
-
-- [Project Structure](#project-structure)
-- [Architecture Overview](#architecture-overview)
-- [Prerequisites](#prerequisites)
-- [Installation](#installation)
-- [Step-by-Step Execution](#step-by-step-execution)
-  - [Step 1 — Start the Data Simulation Server](#step-1--start-the-data-simulation-server)
-  - [Step 2 — Run the Main Hub](#step-2--run-the-main-hub)
-  - [Step 3 — Schema Registration](#step-3--schema-registration)
-  - [Step 4 — Data Ingestion](#step-4--data-ingestion)
-  - [Step 5 — CRUD Operations](#step-5--crud-operations)
-  - [Step 6 — Reset Everything](#step-6--reset-everything)
-- [CRUD Query Examples](#crud-query-examples)
-- [Configuration](#configuration)
+> 📖 New here? Read **[PROJECT_GUIDE.md](PROJECT_GUIDE.md)** for the *why*, the full
+> concept walk-through, and an interview Q&A.
+> For a requirement-by-requirement map of all 4 assignments, see **[REQUIREMENTS.md](REQUIREMENTS.md)**.
 
 ---
 
-## Project Structure
+## The problem we're solving
 
-```
-Hybrid-Database-Framework/
-│
-├── schema.json                   # User-defined JSON schema for incoming records
-├── metadata_store.json           # Auto-generated metadata registry (DO NOT edit manually)
-│
-├── simulation_code.py            # FastAPI SSE server — generates synthetic customer records
-│
-├── phase1_schema_registration.py # Phase 1  — Parses schema.json → builds metadata_store.json
-├── phase2_data_ingestion.py      # Phase 2  — Streams records, validates, writes to buffer.json
-├── classification.py             # Phases 3-6 — Field analysis, storage classification, key management
-├── db_init.py                    # DB Init  — Creates SQLite tables + MongoDB collections, loads buffer
-│
-├── buffer_store.py               # Two-layer buffer: staging (buffer.json) + persistent (MongoDB)
-│
-├── read_operation.py             # CRUD: Read  — routes query across SQL / Mongo / Buffer
-├── insert_operation.py           # CRUD: Insert — validates, routes, and writes new records
-├── update_operation.py           # CRUD: Update — delete-then-insert strategy with deep merge
-├── delete_operation.py           # CRUD: Delete — full record / entity / field / multi-record
-├── reclassify_migrate.py         # Post-CRUD reclassification and data migration
-│
-├── main.py                       # Single entry-point — interactive menu orchestrating all phases
-│
-├── hybrid_db.db                  # SQLite database file (auto-created, excluded from git)
-├── report.md                     # Technical report answering the 7 PDF questions
-└── .gitignore
-```
+Real-world data is a mix of the structured and the unstructured. Some fields are
+uniform and relational — perfect for **SQL** (schemas, joins, constraints, fast
+structured queries). Others are nested, sparse, or constantly changing — perfect for a
+**document store** like **MongoDB** (flexible, schemaless). Traditionally a developer
+must decide *up front* which database each piece of data goes into, hand-design the
+schema, and write every query — which is manual, rigid, and breaks the moment the data
+changes.
+
+**This framework removes that decision.** It watches the incoming data and
+*automatically* places each field where it fits best — PostgreSQL for the
+structured/frequent parts, MongoDB for the nested/variable parts — and exposes a single
+**logical interface** so you work with "a customer" without ever knowing (or caring)
+which database each field lives in. It keeps the two stores consistent using real
+cross-backend transactions, and **re-places fields on the fly** as the data evolves.
+The best of both worlds — chosen and maintained for you, automatically.
 
 ---
 
-## Architecture Overview
+## What it does (the four assignments)
 
-```
-┌──────────────────────────────────────────────────────────────────────┐
-│                         simulation_code.py                           │
-│                    FastAPI SSE  →  /record endpoint                  │
-└─────────────────────────────┬────────────────────────────────────────┘
-                              │  streaming JSON records
-                              ▼
-┌──────────────────────────────────────────────────────────────────────┐
-│  Phase 1  schema.json  ──►  metadata_store.json                      │
-│  Phase 2  Validate + coerce  ──►  buffer.json  (staging)             │
-│  Phase 3  Frequency analysis  (occurrence_count / total_records)     │
-│  Phase 4  Storage classification  (SQL / Mongo.embed / Mongo.ref /   │
-│           Buffer)                                                     │
-│  Phase 5  Key management  (PK surrogate, FK injection, indexes)      │
-│  Phase 6  Storage map merged into metadata_store.json                │
-└──────┬───────────────────────────────┬────────────────────────────── ┘
-       │                               │
-       ▼                               ▼
-┌─────────────┐              ┌─────────────────────┐
-│  SQLite     │              │  MongoDB             │
-│  hybrid_    │              │  hybrid_db           │
-│  db.db      │              │                      │
-│             │              │  ├─ customers (doc)  │
-│  customers  │              │  ├─ reviews (ref)    │
-│  orders     │              │  └─ buffer (persist) │
-│  addresses  │              └─────────────────────┘
-└─────────────┘
-```
+| Part | Theme |
+|------|-------|
+| **A1** | Adaptive ingestion + autonomous SQL/Mongo placement |
+| **A2** | Auto-normalization + metadata-driven CRUD |
+| **A3** | Logical dashboard + ACID transaction coordination |
+| **A4** | Dashboard enhancement + benchmarking + packaging |
 
-**Two-Buffer Architecture**
-
-| Layer | Location | Used For |
-|---|---|---|
-| Staging buffer | `buffer.json` (local file) | Fast batch write during ingestion |
-| Persistent buffer | `MongoDB: hybrid_db.buffer` | CRUD-time storage for low-frequency and unknown fields |
-
-After DB Initialization, the staging buffer is flushed to MongoDB and deleted.
+**Headline features**
+- 🧠 **Autonomous classification** — fields routed to SQL / Mongo / Buffer by their *behavior* (frequency, structure, type), no manual schema mapping.
+- 🔀 **One logical view over two databases** — reads transparently merge SQL rows + Mongo docs into a single record.
+- 🔒 **True cross-backend ACID transactions** — PostgreSQL transaction + MongoDB multi-document transaction, committed as a unit, with rollback/convergence so the backends never diverge.
+- ⚙️ **On-the-go adaptation** — fields migrate between backends at runtime as data changes (e.g. a rare field becoming common, or a type drifting).
+- 🧩 **Configurable type-conflict policy** — coerce safe mismatches; on genuine type drift, either migrate the field to schemaless Mongo (`adaptive`) or reject (`strict`).
+- 🧵 **Concurrency-safe** — per-record locks + a reclassification lock; validated with adversarial ACID tests.
+- 📊 **Benchmarks + comparative analysis** — framework vs. direct DB access, with charts.
 
 ---
 
-## Prerequisites
+## Quick start
 
-| Requirement | Version | Notes |
-|---|---|---|
-| Python | 3.10+ | |
-| MongoDB | 6+ | Must be running on `localhost:27017` |
-| pip packages | see below | |
+### 1. Prerequisites
+- Python 3.11+
+- Docker Desktop (provides PostgreSQL + a MongoDB replica set)
 
-**Python packages:**
-
-```
-fastapi
-uvicorn
-sse-starlette
-faker
-pymongo
-requests
-```
-
----
-
-## Installation
-
-**1. Clone the repository**
-
+### 2. Install
 ```bash
-git clone https://github.com/ParamTanna/DBMS_ASG_2.git
-cd DBMS_ASG_2
+pip install -r requirements.txt
 ```
 
-**2. Install dependencies**
-
+### 3. Start the databases
 ```bash
-pip install fastapi uvicorn sse-starlette faker pymongo requests
+docker compose up -d
 ```
+Starts **PostgreSQL 16** on `localhost:5432` and **MongoDB 7** on `localhost:27018`
+as a single-node **replica set** (`rs0`), initialised automatically. The replica set
+is required for MongoDB transactions. (Port 27018 avoids clashing with any native
+MongoDB already on 27017.)
 
-**3. Ensure MongoDB is running**
-
+### 4. Start the data stream (separate terminal, leave it running)
 ```bash
-# Default: mongod on localhost:27017
-mongod
+python run.py simulate
 ```
 
-> If your MongoDB runs on a different port, update `MONGO_URI` in `main.py` (line ~74).
-
----
-
-## Step-by-Step Execution
-
-### Step 1 — Start the Data Simulation Server
-
-The simulation server generates realistic synthetic customer records and streams them over SSE.  
-Open a **separate terminal** and run:
-
+### 5. Build the database from the stream
 ```bash
-uvicorn simulation_code:app --reload
+python run.py --pipeline        # press Enter for the default record count
 ```
+Ingests → classifies every field → creates Postgres tables + Mongo collections → loads data.
 
-You should see:
-
-```
-INFO:     Uvicorn running on http://127.0.0.1:8000
-```
-
-Keep this terminal running throughout the session.
-
----
-
-### Step 2 — Run the Main Hub
-
-In a **second terminal**, from the project folder:
-
+### 6. Create logins and open the dashboard
 ```bash
-python main.py
+python run.py init-users        # admin/admin123 (developer), user/user123
+python run.py dashboard         # http://localhost:5001
 ```
 
-You will see the interactive menu:
-
+### 7. Validate + benchmark (optional)
+```bash
+python run.py acid              # 15 adversarial ACID tests → expect 15/15
+python run.py benchmark         # writes reports/ + charts
+python -m hybriddb.analysis.comparative_analysis
 ```
-================================================================
-  Hybrid Database  —  Interactive Hub
-================================================================
-  Staging buffer : 0 records
-  Mongo buffer   : 0 records
-  Metadata       : NOT registered
-----------------------------------------------------------------
-  1. Schema Registration / Update
-  2. Data Ingestion  (runs Classification + DB Init automatically)
-  3. CRUD  (read / insert / update / delete)
-  4. Reset Everything
-  0. Exit
-----------------------------------------------------------------
-Choice:
+
+### Shut down
+```bash
+docker compose down             # keep data
+docker compose down -v          # wipe data for a fresh start
+```
+
+Everything is also runnable directly, e.g. `python -m hybriddb.dashboard.dashboard_app`.
+
+---
+
+## Folder layout
+```
+hybriddb/
+├── config/      paths + DB/connection settings (one source of truth)
+├── ingestion/   schema registration, ingestion, classification
+├── storage/     db_init (Postgres+Mongo), buffer_store, audit_store, query_history_store
+├── crud/        read / insert / update / delete operations
+├── core/        sql_db (Postgres layer), transaction_coordinator, reclassify_migrate, main
+├── dashboard/   Flask + SocketIO logical dashboard
+├── testing/     ACID / reliability test suite
+├── analysis/    benchmark_runner, comparative_analysis
+├── tools/       simulation_code (stream server), init_users
+└── utils/       strict_json
+data/            runtime data files (metadata_store.json, schema.json, …)
+reports/         generated benchmark/analysis reports + charts
+docker-compose.yml · requirements.txt · pyproject.toml · .env.example · run.py
 ```
 
 ---
 
-### Step 3 — Schema Registration
+## Configuration (`.env`, all optional — defaults match Docker)
 
-Select **option 1**.
-
-The system reads `schema.json`, parses every field's type, constraints, and structural flags, and writes the full metadata registry to `metadata_store.json`.
-
-```
-Choice: 1
-
-================================================================
-  SCHEMA REGISTRATION / UPDATE
-================================================================
-  Registered 35 fields from schema.json
-  global_key : customer_id
-  Saved → metadata_store.json
-```
-
-> You only need to do this once, or again if you change `schema.json`.
+| Variable | Default | Meaning |
+|----------|---------|---------|
+| `PGHOST/PGPORT/PGDATABASE/PGUSER/PGPASSWORD` | localhost/5432/hybrid_db/postgres/postgres | PostgreSQL |
+| `MONGO_URI` | `mongodb://localhost:27018/?replicaSet=rs0` | MongoDB (replica set) |
+| `MONGO_DB_NAME` | `hybrid_db` | Mongo database |
+| `STREAM_BASE` | `http://127.0.0.1:8000/record` | Ingestion stream |
+| `HYBRIDDB_TYPE_CONFLICT_POLICY` | `adaptive` | `adaptive` (widen to Mongo) or `strict` (reject) on un-coercible type drift |
+| `HYBRIDDB_DATA_DIR` | `./data` | Runtime data-file location |
 
 ---
 
-### Step 4 — Data Ingestion
+## How it works (in one paragraph)
+The **classifier** scores each field by frequency, structure and type and writes its
+decision to `data/metadata_store.json` (so decisions survive restarts). **db_init**
+turns that metadata into Postgres tables (with keys/indexes) and Mongo collections.
+The **CRUD layer** translates one JSON request into the right SQL + Mongo queries and
+merges the results. The **transaction coordinator** runs cross-backend writes as a
+two-phase commit and re-checks classification after each write, migrating fields whose
+behavior changed. The **dashboard** shows everything as logical entities and never
+exposes the underlying tables or collections.
 
-Select **option 2** and enter the number of records to ingest (default 100):
-
-```
-Choice: 2
-
-How many records to ingest? [100]: 100
-```
-
-The system will:
-
-1. Stream records from `http://127.0.0.1:8000/record`
-2. Validate each record against the schema (type coercion, `not_null`, `unique`)
-3. Write all records to `buffer.json` (staging)
-4. Automatically run **Phases 3–6** (classification)
-5. Automatically run **DB Init** (create SQLite tables, MongoDB collections, populate from buffer)
-6. Flush buffer-classified and unknown fields to the persistent MongoDB buffer
-7. Delete `buffer.json`
-
-After completion you will see a summary like:
-
-```
-  [Phase 3] Frequency analysis complete
-  [Phase 4] Classification complete
-  [Phase 5] Key management complete
-  [Phase 6] Storage map saved to metadata_store.json
-
-  [DB INIT] SQLite tables created: customers, orders, addresses
-  [DB INIT] MongoDB collections created: customers, reviews, support_tickets, buffer
-  [DB INIT] Flushed staging buffer → MongoDB buffer
-```
-
----
-
-### Step 5 — CRUD Operations
-
-Select **option 3**. You will be prompted to enter a JSON query:
-
-```
-Choice: 3
-
-Paste your JSON query (then press Enter twice):
-```
-
-See the [CRUD Query Examples](#crud-query-examples) section below for ready-to-use queries.
-
-After each CRUD operation, the system automatically:
-- Recounts field occurrence frequencies
-- Re-evaluates classification thresholds
-- Migrates any data whose backend has changed
-
----
-
-### Step 6 — Reset Everything
-
-Select **option 4** to wipe all data and start fresh:
-
-- Drops all SQLite tables
-- Drops all MongoDB collections (including buffer)
-- Deletes `metadata_store.json`
-- Clears `buffer.json` if it exists
-
-```
-Choice: 4
-
-  This will wipe ALL data and metadata. Confirm? (yes/no): yes
-  Reset complete.
-```
-
----
-
-## CRUD Query Examples
-
-All queries are submitted as JSON through the `main.py` CRUD menu (option 3).
-
----
-
-### Read
-
-Read specific fields for a customer:
-
-```json
-{
-  "operation": "read",
-  "fields": ["customer_id", "name", "email", "orders", "reviews"],
-  "where": { "customer_id": 32772 }
-}
-```
-
-Read all fields:
-
-```json
-{
-  "operation": "read",
-  "fields": ["*"],
-  "where": { "customer_id": 32772 }
-}
-```
-
----
-
-### Insert
-
-Full record:
-
-```json
-{
-  "operation": "insert",
-  "data": {
-    "customer_id": 77001,
-    "name": "Diana Prince",
-    "email": "diana@example.com",
-    "age": 30,
-    "orders": [
-      { "order_id": 5001, "amount": 299.99, "status": "pending" }
-    ],
-    "profile": { "bio": "Hero by day.", "website": "diana.io" },
-    "reviews": [
-      { "product_id": 101, "rating": 5, "comment": "Excellent!" }
-    ]
-  }
-}
-```
-
-Minimal record (only required fields):
-
-```json
-{
-  "operation": "insert",
-  "data": {
-    "customer_id": 77002,
-    "email": "minimal@example.com"
-  }
-}
-```
-
-Record with an unknown field (goes to MongoDB buffer):
-
-```json
-{
-  "operation": "insert",
-  "data": {
-    "customer_id": 77003,
-    "email": "new@example.com",
-    "name": "Test User",
-    "loyalty_tier": "gold"
-  }
-}
-```
-
----
-
-### Update
-
-Update scalar fields:
-
-```json
-{
-  "operation": "update",
-  "where": { "customer_id": 77001 },
-  "data": {
-    "name": "Diana Updated",
-    "profile": { "bio": "Updated bio." }
-  }
-}
-```
-
-Update a specific order (entity-scoped):
-
-```json
-{
-  "operation": "update",
-  "entity": "orders",
-  "where": { "customer_id": 77001, "order_id": 5001 },
-  "data": { "amount": 349.99, "status": "shipped" }
-}
-```
-
----
-
-### Delete
-
-Delete a single full record:
-
-```json
-{
-  "operation": "delete",
-  "where": { "customer_id": 77001 }
-}
-```
-
-Delete multiple full records:
-
-```json
-{
-  "operation": "delete",
-  "where": { "customer_id": [77001, 77002, 77003] }
-}
-```
-
-Delete a specific entity only:
-
-```json
-{
-  "operation": "delete",
-  "entity": "orders",
-  "where": { "customer_id": 77001, "order_id": 5001 }
-}
-```
-
-Delete a field across all records:
-
-```json
-{
-  "operation": "delete",
-  "field": "nickname",
-  "where": {}
-}
-```
-
----
-
-## Configuration
-
-All configurable constants are in `main.py` at the top of the file:
-
-| Constant | Default | Description |
-|---|---|---|
-| `SCHEMA_FILE` | `schema.json` | Input schema path |
-| `METADATA_FILE` | `metadata_store.json` | Metadata output path |
-| `SQLITE_FILE` | `hybrid_db.db` | SQLite database file |
-| `MONGO_URI` | `mongodb://localhost:27017` | MongoDB connection string |
-| `MONGO_DB_NAME` | `hybrid_db` | MongoDB database name |
-| `STREAM_BASE` | `http://127.0.0.1:8000/record` | Simulation server endpoint |
-| `DEFAULT_COUNT` | `100` | Default ingestion batch size |
-
-The classification thresholds are in `classification.py`:
-
-| Constant | Default | Description |
-|---|---|---|
-| `FREQ_SQL_THRESHOLD` | `0.5` | Fields above this frequency go to SQL |
-| `FREQ_MONGO_THRESHOLD` | `0.1` | Fields below this go to Buffer |
-| `AVG_SIZE_THRESHOLD` | `5` | Arrays above this avg size become Mongo reference collections |
+## Notes
+- All PostgreSQL dialect specifics are centralized in `hybriddb/core/sql_db.py`.
+- If MongoDB is not a replica set, the coordinator falls back to a
+  snapshot-and-compensate scheme (transactions skipped, consistency still protected).

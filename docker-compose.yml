@@ -1,0 +1,73 @@
+# Local backends for the hybrid database framework.
+#
+#   docker compose up -d
+#
+# Brings up:
+#   * PostgreSQL 16  on localhost:5432   (db: hybrid_db, user/pass: postgres/postgres)
+#   * MongoDB 7      on localhost:27017  as a single-node replica set "rs0"
+#
+# The replica set is REQUIRED for MongoDB multi-document transactions, which the
+# TransactionCoordinator uses for true cross-backend atomicity. A tiny init
+# container runs rs.initiate() once the mongod is reachable.
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: hybriddb-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: hybrid_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d hybrid_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Runs on 27018 (inside AND out) to avoid clashing with a native MongoDB that
+  # may already own 27017 on the host. The single-node replica set advertises
+  # host localhost:27018, which is reachable both inside the container and from
+  # the host, so transactions work end-to-end.
+  mongo:
+    image: mongo:7
+    container_name: hybriddb-mongo
+    command: ["mongod", "--replSet", "rs0", "--port", "27018", "--bind_ip_all"]
+    ports:
+      - "27018:27018"
+    volumes:
+      - mongodata:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--port", "27018", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # One-shot: initialise the replica set so transactions are available.
+  mongo-init:
+    image: mongo:7
+    container_name: hybriddb-mongo-init
+    depends_on:
+      mongo:
+        condition: service_healthy
+    restart: "no"
+    entrypoint:
+      - bash
+      - -c
+      - |
+        mongosh --host mongo:27018 --quiet --eval '
+          try {
+            rs.status();
+            print("replica set already initialised");
+          } catch (e) {
+            rs.initiate({_id: "rs0", members: [{_id: 0, host: "localhost:27018"}]});
+            print("replica set rs0 initiated");
+          }
+        '
+
+volumes:
+  pgdata:
+  mongodata:

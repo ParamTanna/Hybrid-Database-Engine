@@ -1,0 +1,19 @@
+# ── Ingestion simulator (FastAPI stream server) ──
+fastapi
+uvicorn
+faker
+sse-starlette
+httpx
+
+# ── Core framework ──
+requests
+pymongo
+psycopg[binary]
+python-dotenv
+
+# ── Dashboard ──
+flask
+flask-socketio
+
+# ── Benchmarking / analysis ──
+matplotlib

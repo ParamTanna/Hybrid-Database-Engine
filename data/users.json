@@ -1,0 +1,18 @@
+{
+  "users": {
+    "admin": {
+      "username": "admin",
+      "password_hash": "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9",
+      "role": "developer",
+      "created_at": "2026-06-17T20:00:28.853292+00:00",
+      "last_login": "2026-06-17T20:01:00.142941+00:00"
+    },
+    "user": {
+      "username": "user",
+      "password_hash": "e606e38b0d8c19b24cf0ee3808183162ea7cd63ff7912dbb22b5e803286b4446",
+      "role": "user",
+      "created_at": "2026-06-17T20:00:28.874827+00:00",
+      "last_login": null
+    }
+  }
+}

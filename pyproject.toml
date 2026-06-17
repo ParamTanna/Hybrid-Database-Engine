@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hybriddb"
+version = "1.0.0"
+description = "Adaptive hybrid database framework — autonomous SQL/MongoDB placement with metadata-driven CRUD, a logical dashboard, and ACID-coordinated cross-backend transactions."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "faker",
+    "sse-starlette",
+    "httpx",
+    "requests",
+    "pymongo",
+    "psycopg[binary]",
+    "python-dotenv",
+    "flask",
+    "flask-socketio",
+    "matplotlib",
+]
+
+[project.scripts]
+hybriddb = "hybriddb.core.main:run_menu"
+hybriddb-dashboard = "hybriddb.dashboard.dashboard_app:main"
+
+[tool.setuptools.packages.find]
+include = ["hybriddb*"]
