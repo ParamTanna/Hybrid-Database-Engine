@@ -9,10 +9,6 @@ two stores never disagree.
 You query it with plain JSON like `{"operation":"read","fields":["name","orders"]}`
 and never touch SQL or Mongo directly.
 
-> 📖 New here? Read **[PROJECT_GUIDE.md](PROJECT_GUIDE.md)** for the *why*, the full
-> concept walk-through, and an interview Q&A.
-> For a requirement-by-requirement map of all 4 assignments, see **[REQUIREMENTS.md](REQUIREMENTS.md)**.
-
 ---
 
 ## The problem we're solving
