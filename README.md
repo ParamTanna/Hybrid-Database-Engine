@@ -45,7 +45,7 @@ The best of both worlds — chosen and maintained for you, automatically.
 -  **One logical view over two databases** — reads transparently merge SQL rows + Mongo docs into a single record.
 -  **True cross-backend ACID transactions** — PostgreSQL transaction + MongoDB multi-document transaction, committed as a unit, with rollback/convergence so the backends never diverge.
 -  **On-the-go adaptation** — fields migrate between backends at runtime as data changes (e.g. a rare field becoming common, or a type drifting).
--  **Configurable type-conflict policy** — coerce safe mismatches; on genuine type drift, either migrate the field to schemaless Mongo (`adaptive`) or reject (`strict`).
+-  **Configurable type-conflict policy (rigid ↔ dynamic)** — safe mismatches are always coerced; on genuine type drift the system either **migrates** the field to schemaless Mongo (`adaptive` / dynamic — the default) or **rejects** the write (`strict` / rigid). One env flag flips it.
 -  **Concurrency-safe** — per-record locks + a reclassification lock; validated with adversarial ACID tests.
 -  **Benchmarks + comparative analysis** — framework vs. direct DB access, with charts.
 
@@ -147,6 +147,27 @@ merges the results. The **transaction coordinator** runs cross-backend writes as
 two-phase commit and re-checks classification after each write, migrating fields whose
 behavior changed. The **dashboard** shows everything as logical entities and never
 exposes the underlying tables or collections.
+
+## Rigid vs. dynamic type handling
+
+A user-provided schema declares each field's type. What should happen when incoming
+data **violates** that type? That's a genuine design trade-off, so it's a single switch —
+`HYBRIDDB_TYPE_CONFLICT_POLICY` (default `adaptive`):
+
+- **Safe / representational mismatches** (`12345 → "12345"`, `"42" → 42`) are **always
+  coerced** — both modes accept these.
+- **Genuinely un-coercible values** (e.g. `"forty"` into an `int` field):
+  - **`adaptive` (dynamic, default)** → the field is **migrated to schemaless MongoDB**,
+    preserving the value; mixed types then coexist (`age = 42` and `age = "old"` in the
+    same field). Nothing is discarded.
+  - **`strict` (rigid)** → the write is **rejected** with a clear message; the schema is
+    enforced as a hard contract.
+
+Flip it any time (env var or `.env`):
+```bash
+HYBRIDDB_TYPE_CONFLICT_POLICY=adaptive   # dynamic — migrate to Mongo (default)
+HYBRIDDB_TYPE_CONFLICT_POLICY=strict     # rigid  — reject type violations
+```
 
 ## Notes
 - All PostgreSQL dialect specifics are centralized in `hybriddb/core/sql_db.py`.
