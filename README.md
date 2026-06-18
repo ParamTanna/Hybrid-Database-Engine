@@ -1,8 +1,8 @@
 # Hybrid Database Framework (CS432 Track 2)
 
 An **adaptive database engine** that takes messy JSON, decides *on its own* whether
-each field belongs in **PostgreSQL** (structured) or **MongoDB** (flexible) — or a
-temporary **Buffer** — and then gives you **one simple logical interface** over both.
+each field belongs in **PostgreSQL** (structured) or **MongoDB** (flexible)  or a
+temporary **Buffer**  and then gives you **one simple logical interface** over both.
 Writes that span both databases run as a **true cross-backend transaction**, so the
 two stores never disagree.
 
@@ -14,20 +14,20 @@ and never touch SQL or Mongo directly.
 ## The problem we're solving
 
 Real-world data is a mix of the structured and the unstructured. Some fields are
-uniform and relational — perfect for **SQL** (schemas, joins, constraints, fast
-structured queries). Others are nested, sparse, or constantly changing — perfect for a
+uniform and relational, perfect for **SQL** (schemas, joins, constraints, fast
+structured queries). Others are nested, sparse, or constantly changing, perfect for a
 **document store** like **MongoDB** (flexible, schemaless). Traditionally a developer
 must decide *up front* which database each piece of data goes into, hand-design the
-schema, and write every query — which is manual, rigid, and breaks the moment the data
+schema, and write every query, which is manual, rigid, and breaks the moment the data
 changes.
 
 **This framework removes that decision.** It watches the incoming data and
-*automatically* places each field where it fits best — PostgreSQL for the
-structured/frequent parts, MongoDB for the nested/variable parts — and exposes a single
+*automatically* places each field where it fits best, PostgreSQL for the
+structured/frequent parts, MongoDB for the nested/variable parts and exposes a single
 **logical interface** so you work with "a customer" without ever knowing (or caring)
 which database each field lives in. It keeps the two stores consistent using real
 cross-backend transactions, and **re-places fields on the fly** as the data evolves.
-The best of both worlds — chosen and maintained for you, automatically.
+The best of both worlds, chosen and maintained for you, automatically.
 
 ---
 
@@ -151,11 +151,11 @@ exposes the underlying tables or collections.
 ## Rigid vs. dynamic type handling
 
 A user-provided schema declares each field's type. What should happen when incoming
-data **violates** that type? That's a genuine design trade-off, so it's a single switch —
+data **violates** that type? That's a genuine design trade-off, so it's a single switch,
 `HYBRIDDB_TYPE_CONFLICT_POLICY` (default `adaptive`):
 
 - **Safe / representational mismatches** (`12345 → "12345"`, `"42" → 42`) are **always
-  coerced** — both modes accept these.
+  coerced** —> both modes accept these.
 - **Genuinely un-coercible values** (e.g. `"forty"` into an `int` field):
   - **`adaptive` (dynamic, default)** → the field is **migrated to schemaless MongoDB**,
     preserving the value; mixed types then coexist (`age = 42` and `age = "old"` in the
