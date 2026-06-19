@@ -860,7 +860,7 @@ class TransactionCoordinator:
                 except Exception:
                     pass
             try:
-                conn.close()
+                sql_db.release(conn)
             except Exception:
                 pass
 
@@ -1620,7 +1620,7 @@ class TransactionCoordinator:
                     except Exception:
                         pass
         finally:
-            conn.close()
+            sql_db.release(conn)
 
         return snapshot
 

@@ -1065,7 +1065,7 @@ def generate_markdown_report(results: Dict, timestamp: str):
    frequent requests should cache the metadata dict in memory.
 
 3. **Read overhead is dominated by cross-backend merge**: A single logical read
-   must hit SQLite, MongoDB, and the buffer, merge results, and coerce types.
+   must hit PostgreSQL, MongoDB, and the buffer, merge results, and coerce types.
 
 4. **Update overhead is highest**: The framework implements update as
    delete-then-insert with full snapshot capture for atomicity across two databases.

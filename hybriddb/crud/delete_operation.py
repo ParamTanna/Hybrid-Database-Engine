@@ -2,7 +2,7 @@
 delete_operation.py  -  Hybrid Database Delete Layer
 ======================================================
 Accepts a delete query JSON and removes data from all relevant backends
-(SQLite, MongoDB, buffer.json) using metadata_store.json for routing.
+(PostgreSQL, MongoDB, buffer.json) using metadata_store.json for routing.
 
 Query formats
 -------------
@@ -58,6 +58,7 @@ from hybriddb.storage.buffer_store import (
 )
 from hybriddb.config import paths
 from hybriddb.core import sql_db
+from hybriddb.core.clients import get_mongo_client, get_mongo_db
 
 METADATA_FILE = paths.METADATA_FILE
 MONGO_URI     = paths.MONGO_URI
@@ -206,10 +207,9 @@ def delete_sql_entity(entity_table: str, where: dict, meta: dict) -> dict:
 def _get_mongo_client():
     """Returns (client, db) or (None, None) if unreachable."""
     try:
-        from pymongo import MongoClient
-        client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=2000)
+        client = get_mongo_client()
         client.admin.command("ping")
-        return client, client[MONGO_DB_NAME]
+        return client, get_mongo_db()
     except ImportError:
         print("  [WARN] pymongo not installed — Mongo delete skipped.")
         return None, None
@@ -242,7 +242,7 @@ def delete_mongo_full(gk_val, schema: dict, meta: dict) -> dict:
             result[ref_col] = res.deleted_count
 
     finally:
-        client.close()
+        pass  # shared client; do not close
 
     return result
 
@@ -292,7 +292,7 @@ def delete_mongo_entity(entity: str, where: dict, schema: dict,
                 result[entity] = res.modified_count
 
     finally:
-        client.close()
+        pass  # shared client; do not close
 
     return result
 
@@ -445,14 +445,13 @@ def _delete_field_mongo(fname: str, detail: str, meta: dict) -> dict:
     client, db = None, None
 
     try:
-        from pymongo import MongoClient
-        client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=2_000)
+        client = get_mongo_client()
         client.admin.command("ping")
         db = client[MONGO_DB_NAME]
     except Exception:
         print("  [WARN] MongoDB unreachable — field not deleted from Mongo.")
         if client:
-            client.close()
+            pass  # shared client; do not close
         return {}
 
     result = {}
@@ -469,7 +468,7 @@ def _delete_field_mongo(fname: str, detail: str, meta: dict) -> dict:
             )
             result[main_col] = res.modified_count
     finally:
-        client.close()
+        pass  # shared client; do not close
 
     return result
 

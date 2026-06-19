@@ -36,6 +36,7 @@ from hybriddb.storage.audit_store import get_entries
 from hybriddb.storage.buffer_store import find_records as _buf_find
 from hybriddb.config import paths
 from hybriddb.core import sql_db
+from hybriddb.core.clients import get_mongo_client, get_mongo_db
 
 METADATA_FILE = paths.METADATA_FILE
 MONGO_URI     = paths.MONGO_URI
@@ -390,7 +391,7 @@ def query_sql(meta: dict, sql_tables: dict[str, list], where_sql: dict) -> dict:
                     results[gk_val].update(row_dict)
 
     finally:
-        conn.close()
+        sql_db.release(conn)
 
     return results
 
@@ -435,7 +436,7 @@ def query_mongo(meta: dict, embed_tops: list[str], ref_tops: list[str],
     main_collection = _main_table_name(global_key)
 
     try:
-        client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=2000)
+        client = get_mongo_client()
         client.admin.command("ping")
     except Exception:
         print(f"  [WARN] MongoDB not reachable at {MONGO_URI} — Mongo fields skipped.")
@@ -478,7 +479,7 @@ def query_mongo(meta: dict, embed_tops: list[str], ref_tops: list[str],
                 results[gk_val][top].append(item)
 
     finally:
-        client.close()
+        pass  # shared client; do not close
 
     return results
 

@@ -577,7 +577,7 @@ TEMPLATES = {
       <tr><th>Total Logical Fields</th><td>{{ total_fields }}</td></tr>
       <tr><th>System Ready</th><td>{{ system_ready }}</td></tr>
       <tr>
-        <th>SQLite</th>
+        <th>PostgreSQL</th>
         <td class=\"{{ 'status-success' if schema_ready else 'status-failed' }}\">
           {{ '✅ Connected' if schema_ready else '❌ Not initialized' }}
         </td>
@@ -1061,7 +1061,7 @@ TEMPLATES = {
         </td>
       </tr>
       <tr>
-        <th>SQLite</th>
+        <th>PostgreSQL</th>
         <td class=\"{{ 'status-success' if schema_ready else 'status-failed' }}\">
           {{ 'Connected ✅' if schema_ready else 'Not initialized ❌' }}
         </td>

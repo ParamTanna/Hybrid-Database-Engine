@@ -1,7 +1,7 @@
 {
   "global_key": "customer_id",
-  "registered_at": "2026-06-17T20:21:54.359130+00:00",
-  "total_records": 50,
+  "registered_at": "2026-06-19T08:31:23.548380+00:00",
+  "total_records": 3146,
   "fields": {
     "customer_id": {
       "field_name": "customer_id",
@@ -14,11 +14,11 @@
       "one_to_many": null,
       "parent": null,
       "children": [],
-      "occurrence_count": 53,
+      "occurrence_count": 3734,
       "total_elements": 0,
       "storage_backend": "SQL",
       "storage_detail": "SQL.customers",
-      "frequency": 1.06
+      "frequency": 1.1869
     },
     "email": {
       "field_name": "email",
@@ -31,7 +31,7 @@
       "one_to_many": null,
       "parent": null,
       "children": [],
-      "occurrence_count": 50,
+      "occurrence_count": 3146,
       "total_elements": 0,
       "storage_backend": "SQL",
       "storage_detail": "SQL.customers",
@@ -42,17 +42,17 @@
       "type": "string",
       "level": 0,
       "not_null": false,
-      "unique": true,
+      "unique": false,
       "appendable": null,
       "independent_query": null,
       "one_to_many": null,
       "parent": null,
       "children": [],
-      "occurrence_count": 47,
+      "occurrence_count": 2885,
       "total_elements": 0,
       "storage_backend": "SQL",
       "storage_detail": "SQL.customers",
-      "frequency": 0.94
+      "frequency": 0.917
     },
     "age": {
       "field_name": "age",
@@ -65,28 +65,28 @@
       "one_to_many": null,
       "parent": null,
       "children": [],
-      "occurrence_count": 45,
+      "occurrence_count": 2784,
       "total_elements": 0,
       "storage_backend": "SQL",
       "storage_detail": "SQL.customers",
-      "frequency": 0.9
+      "frequency": 0.8849
     },
     "signup_date": {
       "field_name": "signup_date",
       "type": "string",
       "level": 0,
       "not_null": false,
-      "unique": true,
+      "unique": false,
       "appendable": null,
       "independent_query": null,
       "one_to_many": null,
       "parent": null,
       "children": [],
-      "occurrence_count": 46,
+      "occurrence_count": 2992,
       "total_elements": 0,
       "storage_backend": "SQL",
       "storage_detail": "SQL.customers",
-      "frequency": 0.92
+      "frequency": 0.951
     },
     "phone": {
       "field_name": "phone",
@@ -99,32 +99,49 @@
       "one_to_many": null,
       "parent": null,
       "children": [],
-      "occurrence_count": 14,
+      "occurrence_count": 1350,
       "total_elements": 0,
       "storage_backend": "Mongo",
       "storage_detail": "Mongo.document",
-      "frequency": 0.28
+      "frequency": 0.4291
     },
     "nickname": {
       "field_name": "nickname",
       "type": "string",
       "level": 0,
       "not_null": false,
-      "unique": true,
+      "unique": false,
       "appendable": null,
       "independent_query": null,
       "one_to_many": null,
       "parent": null,
       "children": [],
-      "occurrence_count": 11,
+      "occurrence_count": 1078,
       "total_elements": 0,
       "storage_backend": "Mongo",
       "storage_detail": "Mongo.document",
-      "frequency": 0.22
+      "frequency": 0.3427
     },
     "promo_code": {
       "field_name": "promo_code",
       "type": "string",
+      "level": 0,
+      "not_null": false,
+      "unique": false,
+      "appendable": null,
+      "independent_query": null,
+      "one_to_many": null,
+      "parent": null,
+      "children": [],
+      "occurrence_count": 229,
+      "total_elements": 0,
+      "storage_backend": "Buffer",
+      "storage_detail": "Buffer",
+      "frequency": 0.0728
+    },
+    "beta_flag": {
+      "field_name": "beta_flag",
+      "type": "boolean",
       "level": 0,
       "not_null": false,
       "unique": false,
@@ -138,23 +155,6 @@
       "storage_backend": "Buffer",
       "storage_detail": "Buffer",
       "frequency": 0.0
-    },
-    "beta_flag": {
-      "field_name": "beta_flag",
-      "type": "boolean",
-      "level": 0,
-      "not_null": false,
-      "unique": false,
-      "appendable": null,
-      "independent_query": null,
-      "one_to_many": null,
-      "parent": null,
-      "children": [],
-      "occurrence_count": 3,
-      "total_elements": 0,
-      "storage_backend": "Buffer",
-      "storage_detail": "Buffer",
-      "frequency": 0.06
     },
     "orders": {
       "field_name": "orders",
@@ -172,7 +172,7 @@
         "orders.status"
       ],
       "occurrence_count": 0,
-      "total_elements": 109,
+      "total_elements": 9355,
       "storage_backend": "SQL",
       "storage_detail": "SQL.orders",
       "frequency": 0.0
@@ -188,28 +188,28 @@
       "one_to_many": null,
       "parent": "orders",
       "children": [],
-      "occurrence_count": 42,
+      "occurrence_count": 2625,
       "total_elements": 0,
       "storage_backend": "SQL",
       "storage_detail": "SQL.orders",
-      "frequency": 0.84
+      "frequency": 0.8344
     },
     "orders.amount": {
       "field_name": "orders.amount",
       "type": "float",
       "level": 1,
       "not_null": false,
-      "unique": true,
+      "unique": false,
       "appendable": null,
       "independent_query": null,
       "one_to_many": null,
       "parent": "orders",
       "children": [],
-      "occurrence_count": 42,
+      "occurrence_count": 2625,
       "total_elements": 0,
       "storage_backend": "SQL",
       "storage_detail": "SQL.orders",
-      "frequency": 0.84
+      "frequency": 0.8344
     },
     "orders.status": {
       "field_name": "orders.status",
@@ -222,11 +222,11 @@
       "one_to_many": null,
       "parent": "orders",
       "children": [],
-      "occurrence_count": 42,
+      "occurrence_count": 2625,
       "total_elements": 0,
       "storage_backend": "SQL",
       "storage_detail": "SQL.orders",
-      "frequency": 0.84
+      "frequency": 0.8344
     },
     "addresses": {
       "field_name": "addresses",
@@ -245,7 +245,7 @@
         "addresses.country"
       ],
       "occurrence_count": 0,
-      "total_elements": 43,
+      "total_elements": 4968,
       "storage_backend": "SQL",
       "storage_detail": "SQL.addresses",
       "frequency": 0.0
@@ -261,11 +261,11 @@
       "one_to_many": null,
       "parent": "addresses",
       "children": [],
-      "occurrence_count": 28,
+      "occurrence_count": 2410,
       "total_elements": 0,
       "storage_backend": "SQL",
       "storage_detail": "SQL.addresses",
-      "frequency": 0.56
+      "frequency": 0.7661
     },
     "addresses.street": {
       "field_name": "addresses.street",
@@ -278,28 +278,28 @@
       "one_to_many": null,
       "parent": "addresses",
       "children": [],
-      "occurrence_count": 28,
+      "occurrence_count": 2410,
       "total_elements": 0,
       "storage_backend": "SQL",
       "storage_detail": "SQL.addresses",
-      "frequency": 0.56
+      "frequency": 0.7661
     },
     "addresses.city": {
       "field_name": "addresses.city",
       "type": "string",
       "level": 1,
       "not_null": false,
-      "unique": true,
+      "unique": false,
       "appendable": null,
       "independent_query": null,
       "one_to_many": null,
       "parent": "addresses",
       "children": [],
-      "occurrence_count": 28,
+      "occurrence_count": 2410,
       "total_elements": 0,
       "storage_backend": "SQL",
       "storage_detail": "SQL.addresses",
-      "frequency": 0.56
+      "frequency": 0.7661
     },
     "addresses.country": {
       "field_name": "addresses.country",
@@ -312,11 +312,11 @@
       "one_to_many": null,
       "parent": "addresses",
       "children": [],
-      "occurrence_count": 28,
+      "occurrence_count": 2410,
       "total_elements": 0,
       "storage_backend": "SQL",
       "storage_detail": "SQL.addresses",
-      "frequency": 0.56
+      "frequency": 0.7661
     },
     "profile": {
       "field_name": "profile",
@@ -332,11 +332,11 @@
         "profile.bio",
         "profile.website"
       ],
-      "occurrence_count": 36,
+      "occurrence_count": 2470,
       "total_elements": 0,
       "storage_backend": "Mongo",
       "storage_detail": "Mongo.embed",
-      "frequency": 0.72
+      "frequency": 0.7851
     },
     "profile.bio": {
       "field_name": "profile.bio",
@@ -349,28 +349,28 @@
       "one_to_many": null,
       "parent": "profile",
       "children": [],
-      "occurrence_count": 36,
+      "occurrence_count": 2470,
       "total_elements": 0,
       "storage_backend": "Mongo",
       "storage_detail": "Mongo.embed",
-      "frequency": 0.72
+      "frequency": 0.7851
     },
     "profile.website": {
       "field_name": "profile.website",
       "type": "string",
       "level": 1,
       "not_null": false,
-      "unique": true,
+      "unique": false,
       "appendable": null,
       "independent_query": null,
       "one_to_many": null,
       "parent": "profile",
       "children": [],
-      "occurrence_count": 36,
+      "occurrence_count": 2470,
       "total_elements": 0,
       "storage_backend": "Mongo",
       "storage_detail": "Mongo.embed",
-      "frequency": 0.72
+      "frequency": 0.7851
     },
     "preferences": {
       "field_name": "preferences",
@@ -387,11 +387,11 @@
         "preferences.language",
         "preferences.notifications"
       ],
-      "occurrence_count": 35,
+      "occurrence_count": 2467,
       "total_elements": 0,
       "storage_backend": "Mongo",
       "storage_detail": "Mongo.embed",
-      "frequency": 0.7
+      "frequency": 0.7842
     },
     "preferences.theme": {
       "field_name": "preferences.theme",
@@ -404,11 +404,11 @@
       "one_to_many": null,
       "parent": "preferences",
       "children": [],
-      "occurrence_count": 35,
+      "occurrence_count": 2467,
       "total_elements": 0,
       "storage_backend": "Mongo",
       "storage_detail": "Mongo.embed",
-      "frequency": 0.7
+      "frequency": 0.7842
     },
     "preferences.language": {
       "field_name": "preferences.language",
@@ -421,11 +421,11 @@
       "one_to_many": null,
       "parent": "preferences",
       "children": [],
-      "occurrence_count": 35,
+      "occurrence_count": 2467,
       "total_elements": 0,
       "storage_backend": "Mongo",
       "storage_detail": "Mongo.embed",
-      "frequency": 0.7
+      "frequency": 0.7842
     },
     "preferences.notifications": {
       "field_name": "preferences.notifications",
@@ -438,11 +438,11 @@
       "one_to_many": null,
       "parent": "preferences",
       "children": [],
-      "occurrence_count": 35,
+      "occurrence_count": 2467,
       "total_elements": 0,
       "storage_backend": "Mongo",
       "storage_detail": "Mongo.embed",
-      "frequency": 0.7
+      "frequency": 0.7842
     },
     "tags": {
       "field_name": "tags",
@@ -457,12 +457,12 @@
       "children": [
         "tags.tag"
       ],
-      "occurrence_count": 31,
-      "total_elements": 60,
+      "occurrence_count": 2249,
+      "total_elements": 6004,
       "storage_backend": "Mongo",
       "storage_detail": "Mongo.embed",
-      "frequency": 0.62,
-      "avg_size": 1.94
+      "frequency": 0.7149,
+      "avg_size": 2.67
     },
     "tags.tag": {
       "field_name": "tags.tag",
@@ -475,11 +475,11 @@
       "one_to_many": null,
       "parent": "tags",
       "children": [],
-      "occurrence_count": 31,
+      "occurrence_count": 2249,
       "total_elements": 0,
       "storage_backend": "Mongo",
       "storage_detail": "Mongo.embed",
-      "frequency": 0.62
+      "frequency": 0.7149
     },
     "reviews": {
       "field_name": "reviews",
@@ -496,12 +496,12 @@
         "reviews.rating",
         "reviews.comment"
       ],
-      "occurrence_count": 30,
-      "total_elements": 217,
+      "occurrence_count": 2535,
+      "total_elements": 26643,
       "storage_backend": "Mongo",
       "storage_detail": "Mongo.reference",
-      "frequency": 0.6,
-      "avg_size": 7.23
+      "frequency": 0.8058,
+      "avg_size": 10.51
     },
     "reviews.product_id": {
       "field_name": "reviews.product_id",
@@ -514,11 +514,11 @@
       "one_to_many": null,
       "parent": "reviews",
       "children": [],
-      "occurrence_count": 30,
+      "occurrence_count": 2535,
       "total_elements": 0,
       "storage_backend": "Mongo",
       "storage_detail": "Mongo.reference",
-      "frequency": 0.6
+      "frequency": 0.8058
     },
     "reviews.rating": {
       "field_name": "reviews.rating",
@@ -531,11 +531,11 @@
       "one_to_many": null,
       "parent": "reviews",
       "children": [],
-      "occurrence_count": 30,
+      "occurrence_count": 2535,
       "total_elements": 0,
       "storage_backend": "Mongo",
       "storage_detail": "Mongo.reference",
-      "frequency": 0.6
+      "frequency": 0.8058
     },
     "reviews.comment": {
       "field_name": "reviews.comment",
@@ -548,11 +548,11 @@
       "one_to_many": null,
       "parent": "reviews",
       "children": [],
-      "occurrence_count": 30,
+      "occurrence_count": 2535,
       "total_elements": 0,
       "storage_backend": "Mongo",
       "storage_detail": "Mongo.reference",
-      "frequency": 0.6
+      "frequency": 0.8058
     },
     "support_tickets": {
       "field_name": "support_tickets",
@@ -569,12 +569,12 @@
         "support_tickets.issue",
         "support_tickets.resolved"
       ],
-      "occurrence_count": 28,
-      "total_elements": 201,
+      "occurrence_count": 2109,
+      "total_elements": 19007,
       "storage_backend": "Mongo",
       "storage_detail": "Mongo.reference",
-      "frequency": 0.56,
-      "avg_size": 7.18
+      "frequency": 0.6704,
+      "avg_size": 9.01
     },
     "support_tickets.ticket_id": {
       "field_name": "support_tickets.ticket_id",
@@ -587,11 +587,11 @@
       "one_to_many": null,
       "parent": "support_tickets",
       "children": [],
-      "occurrence_count": 28,
+      "occurrence_count": 2109,
       "total_elements": 0,
       "storage_backend": "Mongo",
       "storage_detail": "Mongo.reference",
-      "frequency": 0.56
+      "frequency": 0.6704
     },
     "support_tickets.issue": {
       "field_name": "support_tickets.issue",
@@ -604,11 +604,11 @@
       "one_to_many": null,
       "parent": "support_tickets",
       "children": [],
-      "occurrence_count": 28,
+      "occurrence_count": 2109,
       "total_elements": 0,
       "storage_backend": "Mongo",
       "storage_detail": "Mongo.reference",
-      "frequency": 0.56
+      "frequency": 0.6704
     },
     "support_tickets.resolved": {
       "field_name": "support_tickets.resolved",
@@ -621,11 +621,11 @@
       "one_to_many": null,
       "parent": "support_tickets",
       "children": [],
-      "occurrence_count": 28,
+      "occurrence_count": 2109,
       "total_elements": 0,
       "storage_backend": "Mongo",
       "storage_detail": "Mongo.reference",
-      "frequency": 0.56
+      "frequency": 0.6704
     }
   },
   "key_management": {
@@ -645,14 +645,6 @@
           {
             "column": "email",
             "unique": true
-          },
-          {
-            "column": "name",
-            "unique": true
-          },
-          {
-            "column": "signup_date",
-            "unique": true
           }
         ]
       },
@@ -670,10 +662,6 @@
           {
             "column": "customer_id",
             "unique": false
-          },
-          {
-            "column": "amount",
-            "unique": true
           }
         ]
       },
@@ -695,10 +683,6 @@
           },
           {
             "column": "street",
-            "unique": true
-          },
-          {
-            "column": "city",
             "unique": true
           }
         ]

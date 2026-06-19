@@ -4,9 +4,10 @@ Every SQL-touching module talks to Postgres through this module so that all
 dialect specifics (placeholder style, upsert syntax, identifier quoting,
 introspection, type mapping, transaction handling) live in exactly one place.
 
-Replaces the previous direct ``sqlite3`` usage scattered across the codebase.
+Centralizes all PostgreSQL access so the rest of the codebase stays database-agnostic.
 """
 
+import threading
 from contextlib import contextmanager
 from typing import Any, Iterable, Sequence
 
@@ -39,8 +40,24 @@ def pg_type(schema_type: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Connections
+# Connections (pooled)
 # ---------------------------------------------------------------------------
+#
+# Opening a fresh PostgreSQL connection per operation is expensive (TCP + auth +
+# server startup). A small process-wide pool reuses idle connections instead.
+# This changes no behavior — a pooled connection runs the same SQL with the
+# same transaction semantics; it is just reused rather than reconnected.
+#
+# Thread-safety: a connection is only ever handed to one thread at a time
+# (checkout removes it from the pool, release returns it), which preserves
+# psycopg's single-threaded-per-connection rule. Callers that still call
+# conn.close() instead of release() are safe — the connection is simply dropped
+# from the pool (less reuse, never incorrect).
+
+_POOL_MAX = 8
+_pool: list = []
+_pool_lock = threading.Lock()
+
 
 def conninfo() -> str:
     """Build a libpq connection string from the centralised config."""
@@ -50,23 +67,62 @@ def conninfo() -> str:
     )
 
 
-def connect(*, autocommit: bool = False, row_factory=None) -> psycopg.Connection:
-    """Open a psycopg3 connection from config.
+def _checkout() -> psycopg.Connection:
+    """Reuse an idle pooled connection, or open a new one if the pool is empty."""
+    with _pool_lock:
+        while _pool:
+            conn = _pool.pop()
+            if not conn.closed:
+                return conn
+    return psycopg.connect(conninfo())
 
-    autocommit=True  -> read-only / health-probe / DDL paths that should not
-                        leave an open transaction.
+
+def connect(*, autocommit: bool = False, row_factory=None) -> psycopg.Connection:
+    """Borrow a connection from the pool (or open one), configured for this call.
+
+    autocommit=True  -> read-only / health-probe / DDL paths.
     autocommit=False -> transactional write paths (default).
-    row_factory=dict_row gives dict-like rows (the sqlite3.Row replacement).
+    row_factory=dict_row gives dict-like rows.
+
+    Return the connection with release() when done (callers that call .close()
+    instead are still safe — they just forgo reuse).
     """
-    kwargs: dict[str, Any] = {"autocommit": autocommit}
-    if row_factory is not None:
-        kwargs["row_factory"] = row_factory
-    return psycopg.connect(conninfo(), **kwargs)
+    conn = _checkout()
+    # Reconfigure per checkout so a reused connection matches this call exactly.
+    conn.autocommit = autocommit
+    conn.row_factory = row_factory or tuple_row
+    return conn
 
 
 def dict_connect(*, autocommit: bool = False) -> psycopg.Connection:
     """connect() with dict_row rows."""
     return connect(autocommit=autocommit, row_factory=dict_row)
+
+
+def release(conn) -> None:
+    """Return a connection to the pool for reuse (rolling back any open
+    transaction first so the next user gets a clean connection). Closes it if
+    the pool is full or the connection is broken. Use this instead of close()."""
+    if conn is None:
+        return
+    try:
+        if conn.closed:
+            return
+        conn.rollback()  # clear any open transaction; no-op if already idle
+    except Exception:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return
+    with _pool_lock:
+        if len(_pool) < _POOL_MAX:
+            _pool.append(conn)
+            return
+    try:
+        conn.close()
+    except Exception:
+        pass
 
 
 @contextmanager
@@ -76,7 +132,8 @@ def transaction(*, row_factory=None):
         with transaction() as (conn, cur):
             cur.execute(...)
 
-    Commits on clean exit, rolls back on exception, always closes.
+    Commits on clean exit, rolls back on exception, returns the connection to
+    the pool either way.
     """
     conn = connect(row_factory=row_factory)
     try:
@@ -87,7 +144,7 @@ def transaction(*, row_factory=None):
         conn.rollback()
         raise
     finally:
-        conn.close()
+        release(conn)
 
 
 # ---------------------------------------------------------------------------
@@ -173,7 +230,7 @@ def fix_identity_sequences(cur, table: str) -> None:
 def table_columns(conn, table: str) -> list[dict]:
     """Return [{'name','type','notnull','pk'}] for a table.
 
-    Replaces SQLite ``PRAGMA table_info(...)``.
+    Returns column metadata (name, type, notnull, pk) for a table.
     """
     with conn.cursor(row_factory=tuple_row) as cur:
         cur.execute(
@@ -220,7 +277,7 @@ def table_exists(conn, table: str) -> bool:
 
 
 def list_tables(conn) -> list[str]:
-    """All user tables in the public schema. Replaces sqlite_master listing."""
+    """All user tables in the public schema."""
     with conn.cursor(row_factory=tuple_row) as cur:
         cur.execute(
             "SELECT tablename FROM pg_catalog.pg_tables "
@@ -231,7 +288,7 @@ def list_tables(conn) -> list[str]:
 
 def drop_all_tables() -> None:
     """Drop every table in the public schema (full reset). Used by db_init /
-    the reset menu in place of deleting the SQLite file."""
+    the reset menu to fully reset the database."""
     with transaction() as (conn, cur):
         cur.execute("DROP SCHEMA public CASCADE")
         cur.execute("CREATE SCHEMA public")
@@ -242,8 +299,7 @@ def drop_all_tables() -> None:
 # ---------------------------------------------------------------------------
 
 def health_check() -> bool:
-    """True if Postgres is reachable. Replaces os.path.exists(SQLITE_FILE)
-    guards and the SQL branch of TransactionCoordinator._check_backends."""
+    """True if PostgreSQL is reachable (used by the coordinator's backend probe)."""
     try:
         conn = connect(autocommit=True)
         try:
@@ -252,6 +308,6 @@ def health_check() -> bool:
                 cur.fetchone()
             return True
         finally:
-            conn.close()
+            release(conn)
     except Exception:
         return False

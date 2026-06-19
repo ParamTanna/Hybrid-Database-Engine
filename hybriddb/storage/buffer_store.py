@@ -110,14 +110,17 @@ def staging_exists() -> bool:
 
 def _get_col():
     """
-    Returns (client, collection).
-    Caller must call client.close().
-    Raises if MongoDB is unreachable.
+    Returns (client, collection) backed by the shared MongoClient.
+
+    `client` is returned as None on purpose: callers guard their cleanup with
+    `if client is not None: client.close()`, so returning None makes those a
+    no-op — the process-wide shared client must never be closed. Reachability
+    errors surface on the first query and are handled by callers exactly as
+    before (they return 0 / [] on failure). Same behavior, no per-call client
+    creation.
     """
-    from pymongo import MongoClient
-    client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=3_000)
-    client.admin.command("ping")
-    return client, client[MONGO_DB_NAME][BUFFER_COLL]
+    from hybriddb.core.clients import get_mongo_db
+    return None, get_mongo_db()[BUFFER_COLL]
 
 
 def count() -> int:

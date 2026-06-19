@@ -403,7 +403,7 @@ def generate_comparative_report(results: dict, timestamp: str):
 ## 1. Overview
 
 This document compares the performance of the hybrid database framework
-against direct SQL (SQLite) and direct MongoDB access across three
+against direct SQL (PostgreSQL) and direct MongoDB access across three
 dimensions: read queries, update operations, and throughput under load.
 
 ### How the Framework Works

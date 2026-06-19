@@ -234,7 +234,7 @@ def _load_buffer() -> list:
 
 def insert_sql(meta: dict, sql_tables: dict, records: list):
     """
-    Insert buffer records into SQLite tables.
+    Insert buffer records into PostgreSQL tables.
     For each record, routes each field to its correct table using metadata.
     """
     if not records:

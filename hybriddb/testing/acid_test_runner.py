@@ -596,7 +596,7 @@ def main():
     tc = TransactionCoordinator()
     sql_ok, mongo_ok = tc._check_backends()
     if not (sql_ok and mongo_ok):
-        print("[FATAL] Backends not available. Ensure SQLite and MongoDB are running.")
+        print("[FATAL] Backends not available. Ensure PostgreSQL and MongoDB are running.")
         print(f"  sql_available={sql_ok} mongo_available={mongo_ok}")
         return 2
 

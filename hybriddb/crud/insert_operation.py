@@ -45,6 +45,7 @@ from hybriddb.core import sql_db
 from hybriddb.ingestion.classification import _main_table_name
 from hybriddb.crud.read_operation import execute_read
 from hybriddb.storage.buffer_store import append_record as _buf_append
+from hybriddb.core.clients import get_mongo_client, get_mongo_db
 
 METADATA_FILE = paths.METADATA_FILE
 SCHEMA_FILE   = paths.SCHEMA_FILE
@@ -174,8 +175,7 @@ def _check_unique(flat_data: dict, meta: dict) -> list[tuple[str, str]]:
         if mongo_client is not None:
             return mongo_db
         try:
-            from pymongo import MongoClient
-            mongo_client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=2000)
+            mongo_client = get_mongo_client()
             mongo_client.admin.command("ping")
             mongo_db = mongo_client[MONGO_DB_NAME]
             return mongo_db
@@ -232,9 +232,9 @@ def _check_unique(flat_data: dict, meta: dict) -> list[tuple[str, str]]:
 
     finally:
         if sql_conn:
-            sql_conn.close()
+            sql_db.release(sql_conn)
         if mongo_client and mongo_client is not False:
-            mongo_client.close()
+            pass  # shared client; do not close
 
     return violations
 
@@ -581,7 +581,7 @@ def insert_mongo(mongo_embed_doc: dict, mongo_ref_arrays: dict,
     main_collection = _main_table_name(global_key)
 
     try:
-        client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=2000)
+        client = get_mongo_client()
         client.admin.command("ping")
     except Exception:
         print(f"  [WARN] MongoDB not reachable at {MONGO_URI} — Mongo insert skipped.")
@@ -613,7 +613,7 @@ def insert_mongo(mongo_embed_doc: dict, mongo_ref_arrays: dict,
             result["reference"][collection] = count
 
     finally:
-        client.close()
+        pass  # shared client; do not close
 
     return result
 

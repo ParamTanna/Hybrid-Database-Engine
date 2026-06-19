@@ -55,6 +55,7 @@ from hybriddb.crud.insert_operation import (
 )
 from hybriddb.config import paths
 from hybriddb.core import sql_db
+from hybriddb.core.clients import get_mongo_client, get_mongo_db
 
 
 # ---------------------------------------------------------------------------
@@ -188,8 +189,7 @@ def _pre_validate_unique(flat_merged: dict, meta: dict, gk_val) -> list[tuple[st
         if mongo_client is not None:
             return mongo_db
         try:
-            from pymongo import MongoClient
-            mongo_client = MongoClient(paths.MONGO_URI, serverSelectionTimeoutMS=2000)
+            mongo_client = get_mongo_client()
             mongo_client.admin.command("ping")
             mongo_db = mongo_client[paths.MONGO_DB_NAME]
             return mongo_db
@@ -250,9 +250,9 @@ def _pre_validate_unique(flat_merged: dict, meta: dict, gk_val) -> list[tuple[st
 
     finally:
         if sql_conn:
-            sql_conn.close()
+            sql_db.release(sql_conn)
         if mongo_client and mongo_client is not False:
-            mongo_client.close()
+            pass  # shared client; do not close
 
     return violations
 
