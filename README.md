@@ -24,12 +24,13 @@ and packaging.
 3. [Features](#features)
 4. [Architecture](#architecture)
 5. [Quick start](#quick-start)
-6. [Performance](#performance)
-7. [Design trade-offs](#design-trade-offs)
-8. [Rigid vs. dynamic type handling](#rigid-vs-dynamic-type-handling)
-9. [Project layout](#project-layout)
-10. [Configuration](#configuration)
-11. [Notes](#notes)
+6. [Benchmark results](#benchmark-results)
+7. [Reliability (ACID validation)](#reliability-acid-validation)
+8. [Design trade-offs](#design-trade-offs)
+9. [Rigid vs. dynamic type handling](#rigid-vs-dynamic-type-handling)
+10. [Project layout](#project-layout)
+11. [Configuration](#configuration)
+12. [Notes](#notes)
 
 ---
 
@@ -181,28 +182,111 @@ Everything is also runnable directly, e.g. `python -m hybriddb.dashboard.dashboa
 
 ---
 
-## Performance
+## Benchmark results
 
-Measured on a 5,000-record dataset (~70K rows/documents). The framework adds latency over
-hitting a single database directly — that's expected, because direct access does **none**
-of the cross-backend routing, merging, or atomicity the framework provides. So treat
-"direct DB" as a deliberately *unfair* floor; the honest story is the **trade-off**, and
-how much of the overhead we removed by profiling.
+Measured on a local machine (Docker PostgreSQL + MongoDB) over a 5,000-record dataset
+(~70K rows/documents); per-operation averages from `benchmark_runner.py` +
+`comparative_analysis.py`.
 
-| Operation | Direct DB | Framework (initial) | Framework (optimized) |
+> **Read the overhead honestly.** The "direct DB" columns are a deliberately *unfair*
+> baseline: direct access does none of the routing, cross-backend merging, or atomicity
+> the framework provides. The overhead is the price of a unified, consistent, adaptive
+> layer — so the number that matters is the *trade-off*, and how much of it we removed by
+> profiling.
+
+**Optimization — before vs. after (our headline result).** Profiling showed ~94% of an
+insert was coordination overhead caused by recreating DB clients/connections on every
+call (a MongoClient on a replica set also re-runs topology discovery). A **shared
+MongoClient** + a **PostgreSQL connection pool** cut the hot paths **~5×**, with **zero
+behavior change** (ACID suite still 15/15):
+
+| Operation | Initial | Optimized | Gain |
 |---|---|---|---|
-| Coordinated insert | ~12 ms | 219 ms (1708% over direct) | **47 ms (356%)** |
-| Single-record read | ~1 ms | 126 ms | **26 ms** |
-| Update | ~3 ms | 616 ms | **302 ms** |
-| Ingestion / record | — | 262 ms | **50 ms** |
+| Coordinated insert | 219 ms · 1708% overhead | **47 ms · 356%** | ~4.6× |
+| Single-record read | 126 ms | **26 ms** | ~4.8× |
+| Update | 616 ms | **302 ms** | ~2× |
+| Ingestion / record | 262 ms | **50 ms** | ~5.2× |
 
-Profiling showed ~94% of an insert was coordination overhead — and the cause was
-recreating database clients/connections on every call (a MongoClient on a replica set
-also re-runs topology discovery). Reusing a **shared MongoClient** and adding a
-**PostgreSQL connection pool** cut the hot paths **~5×** (insert overhead 1708% → 356%)
-with **zero behavior change** — the full ACID suite still passes 15/15. The remaining
-overhead is the cross-backend merge, which scales with result size (a known trade-off,
-not a connection cost).
+**Insert coordination breakdown** (where the 47 ms goes vs. direct writes):
+
+| Component | Avg |
+|---|---|
+| Direct SQL insert | 3.92 ms |
+| Direct MongoDB insert | 6.46 ms |
+| Combined direct (SQL + Mongo) | 10.39 ms |
+| **Framework coordinated insert** | **47.36 ms** |
+| Coordination overhead | 36.97 ms (+356%) |
+
+**Query latency — framework vs. direct:**
+
+| Query | Framework | Direct SQL | Direct MongoDB |
+|---|---|---|---|
+| Single record (by PK) | 26.01 ms | 1.34 ms | 1.62 ms |
+| All ~5,000 records | 561.96 ms | 7.76 ms | 22.87 ms |
+| Update (delete + re-insert) | 302.11 ms | 3.62 ms | 4.47 ms |
+
+**Metadata / routing cost** (negligible — and cacheable):
+
+| Operation | Avg |
+|---|---|
+| Load `metadata_store.json` | 0.207 ms |
+| Single field routing lookup | 0.00015 ms |
+| Wildcard field expansion | 0.0021 ms |
+
+**Autonomous field-routing distribution** (16 top-level fields, decided by the engine):
+
+| Backend | Fields | Share |
+|---|---|---|
+| PostgreSQL | 7 | 43.8% |
+| MongoDB (embedded) | 5 | 31.2% |
+| MongoDB (reference) | 2 | 12.5% |
+| Buffer | 2 | 12.5% |
+
+**Charts** (written to `reports/charts/` after a run): `latency_comparison.png`,
+`coordination_overhead.png`, `overhead_breakdown.png`, `data_distribution.png`,
+`comparative_read_latency.png`, `comparative_update_latency.png`.
+
+**Takeaway.** The framework trades raw speed for a unified API, schema-driven routing, and
+cross-backend atomicity. Metadata routing is essentially free (~0.2 ms); the real cost is
+coordination on writes and the merge on multi-record reads — and connection pooling
+already removed ~80% of the write overhead. The remaining merge cost scales with result
+size (future work: streaming merge).
+
+---
+
+## Reliability (ACID validation)
+
+Run the adversarial ACID suite:
+
+```bash
+python run.py acid          # or: python -m hybriddb.testing.reliability_test_runner
+```
+
+**Latest run: 15/15 PASS**, zero cross-backend inconsistencies, across simulated backend
+failures and concurrent write rounds. Default config: **8** duplicate-insert race rounds,
+**4** update/delete race rounds, **16** parallel unique inserts (seed `1337`).
+
+| Test | Result | What it proves |
+|---|:---:|---|
+| Atomicity — insert, Mongo write fails | ✅ | SQL rolled back; no partial residue on either backend |
+| Atomicity — delete, Mongo fails | ✅ | SQL restored from snapshot; record survives intact |
+| Atomicity — update, Mongo fails | ✅ | Record restored to its exact pre-update state |
+| Atomicity — Mongo *commit* fails after PG commit | ✅ | Converge step removes the half-write; backends never diverge |
+| Consistency — cross-backend agreement | ✅ | After an insert, PostgreSQL and MongoDB agree the record exists |
+| Consistency — duplicate insert rejected | ✅ | Second insert with same primary key rejected; row count stays 1 |
+| Consistency — unknown update field rejected | ✅ | Schema-unknown data fields rejected without mutating anything |
+| Consistency — unknown where-key rejected | ✅ | Schema-unknown filter keys rejected without mutation |
+| Consistency — bulk delete with missing key aborts | ✅ | All-or-nothing; existing rows preserved |
+| Isolation — duplicate-insert race (8 rounds) | ✅ | Concurrent duplicates yield exactly one success |
+| Isolation — update vs. delete race (4 rounds) | ✅ | Never produces torn or duplicate state |
+| Isolation — 16 parallel unique inserts | ✅ | At most one row per distinct key |
+| Isolation — reader never sees torn update | ✅ | A concurrent reader never observes the record mid-delete |
+| Durability — fresh-reader reopen | ✅ | Committed data visible from a new coordinator and directly in PostgreSQL |
+| API contract — `rolled_back` flag | ✅ | Failed operations correctly report `rolled_back=True` |
+
+Each atomicity test *injects* a failure (e.g. forces the Mongo write or its final commit
+to fail) and then asserts neither backend kept a partial write — so a green result means
+the system **handled** the failure correctly.
 
 ---
 
